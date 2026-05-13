@@ -166,46 +166,52 @@ def _score_match(banner_name: NormalizedName, rmp_prof: ProfessorRMP) -> float:
     Score how well a Banner name matches an RMP professor profile.
     Returns a score from 0-100, higher is better.
     """
+    banner_first = banner_name.first_name.lower()
+    rmp_first = rmp_prof.first_name.lower()
+
     # Last name is the strongest signal
     last_score = fuzz.ratio(
         banner_name.last_name.lower(),
         rmp_prof.last_name.lower(),
     )
 
-    # If last name doesn't even come close, bail early
+    # If last names don't match but first names do exactly, this is likely a
+    # name change (marriage/divorce). Accept as a plausible match.
     if last_score < LAST_NAME_THRESHOLD:
+        if (len(banner_first) > 2
+                and banner_first == rmp_first):
+            return 72.0  # Above FULL_NAME_THRESHOLD; exact first-name match despite last name change
         return 0.0
 
     # Check first name
-    banner_first = banner_name.first_name.lower()
-    rmp_first = rmp_prof.first_name.lower()
-
     if not banner_first:
         # No first name from Banner (just last name)
-        # Give partial credit for last name match
         return last_score * 0.7
 
     if len(banner_first) == 1:
         # Banner only gave us an initial (e.g. "C" for "Chandana")
         if rmp_first and rmp_first[0] == banner_first[0]:
-            # Initial matches: strong signal
             return min(100, last_score + INITIAL_MATCH_BONUS)
         else:
-            # Initial doesn't match: significant penalty
             return last_score * 0.3
 
     # Full first name comparison
     first_score = fuzz.ratio(banner_first, rmp_first)
-
-    # Also try partial ratio in case of name variants (e.g. "Mike" vs "Michael")
     first_partial = fuzz.partial_ratio(banner_first, rmp_first)
     first_best = max(first_score, first_partial)
+
+    # Hard reject: both sides have full first names but they start with
+    # different letters — almost certainly a different person (e.g.
+    # "Sanjoy" vs "Kishalay"). partial_ratio can still score ~50 due to
+    # shared substring noise, so we gate on the initial before weighting.
+    if rmp_first and banner_first[0] != rmp_first[0]:
+        first_best *= 0.4
 
     # Weighted combination: last name matters more
     combined = (last_score * 0.6) + (first_best * 0.4)
 
-    # Bonus for initial match
-    if banner_first and rmp_first and banner_first[0] == rmp_first[0]:
+    # Small bonus when initials agree
+    if rmp_first and banner_first[0] == rmp_first[0]:
         combined = min(100, combined + 5)
 
     return combined
