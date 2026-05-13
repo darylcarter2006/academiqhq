@@ -86,6 +86,8 @@ async def rank_professors(
 
         ranked: list[dict] = json.loads(raw)
     except Exception as exc:
+        import logging as _logging
+        _logging.getLogger(__name__).error(f"Claude ranking failed: {exc!r}")
         # Graceful fallback: return original order without AI scoring
         for p in professors:
             p.setdefault('match_score', 'Decent fit')
