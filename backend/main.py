@@ -17,8 +17,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routes.recommend import router
-from backend.db.database import CacheDB
+from routes.recommend import router
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -87,25 +86,6 @@ async def startup():
         )
     else:
         logger.info("Claude API key configured")
-
-    # Initialize cache
-    ttl = int(os.environ.get("CACHE_TTL", 86400))
-    db_path = os.environ.get("DB_PATH", None)
-
-    cache_kwargs = {"ttl": ttl}
-    if db_path:
-        cache_kwargs["db_path"] = db_path
-
-    cache = CacheDB(**cache_kwargs)
-    stats = cache.stats()
-    logger.info(
-        f"Cache ready: {stats['cached_courses']} courses, "
-        f"{stats['cached_professors']} professors cached "
-        f"(TTL: {ttl}s, DB: {stats['db_path']})"
-    )
-
-    # Clean expired entries
-    cache.clear_expired()
 
     logger.info("UNCG Professor Recommender backend started")
 
