@@ -9,9 +9,12 @@ HTML_TAG_RE = re.compile(r'<[^>]+>')
 CONTROL_CHAR_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
 
 
+TERM_RE = re.compile(r'^\d{6}$')
+
 class RecommendRequest(BaseModel):
     course_code: str = Field(..., min_length=3, max_length=20)
     preferences: str = Field(..., min_length=5, max_length=500)
+    term: str | None = Field(None, description="Optional Banner term code, e.g. '202608' for Fall 2026")
 
     @field_validator('course_code')
     @classmethod
@@ -23,6 +26,16 @@ class RecommendRequest(BaseModel):
                 'Invalid course code — use the format "CSC 330" or "MAT191".'
             )
         return f"{m.group(1)} {m.group(2)}"
+
+    @field_validator('term')
+    @classmethod
+    def validate_term(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        if not TERM_RE.match(v):
+            raise ValueError('Term must be a 6-digit Banner code, e.g. "202608".')
+        return v
 
     @field_validator('preferences')
     @classmethod
@@ -55,7 +68,7 @@ async def recommend(req: RecommendRequest):
     from ai.recommender import rank_professors
 
     # 1. Scrape Banner for sections
-    sections = await fetch_sections(req.course_code)
+    sections = await fetch_sections(req.course_code, term_code=req.term)
     if not sections:
         raise HTTPException(
             status_code=404,
