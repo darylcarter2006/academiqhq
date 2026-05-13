@@ -8,7 +8,7 @@ export default function Home() {
   const [error, setError] = React.useState(null)
   const [result, setResult] = React.useState(null)
 
-  async function handleSearch({ course, prefs }) {
+  async function handleSearch({ course, prefs, term }) {
     setLoading(true)
     setError(null)
     setResult(null)
@@ -16,7 +16,7 @@ export default function Home() {
       const res = await fetch('/api/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ course_code: course, preferences: prefs }),
+        body: JSON.stringify({ course_code: course, preferences: prefs, term }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))

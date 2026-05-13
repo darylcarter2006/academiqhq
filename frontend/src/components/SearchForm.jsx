@@ -6,14 +6,23 @@ const EXAMPLES = [
   { label: 'ENG 101', course: 'ENG 101', prefs: 'Flexible with deadlines, helpful feedback on essays' },
 ]
 
+const TERMS = [
+  { label: 'Auto-detect', value: '' },
+  { label: 'Summer 2026', value: '202605' },
+  { label: 'Fall 2026',   value: '202608' },
+  { label: 'Spring 2026', value: '202601' },
+  { label: 'Spring 2027', value: '202701' },
+]
+
 export default function SearchForm({ onSubmit, loading }) {
   const [course, setCourse] = React.useState('')
   const [prefs, setPrefs] = React.useState('')
+  const [term, setTerm] = React.useState('')
 
   function handleSubmit(e) {
     e.preventDefault()
     if (!course.trim() || !prefs.trim()) return
-    onSubmit({ course: course.trim(), prefs: prefs.trim() })
+    onSubmit({ course: course.trim(), prefs: prefs.trim(), term: term || null })
   }
 
   function fillExample(ex) {
@@ -27,7 +36,7 @@ export default function SearchForm({ onSubmit, loading }) {
     <form onSubmit={handleSubmit} className="card p-7 flex flex-col gap-5">
       <div className="flex gap-4 flex-wrap">
         {/* Course code */}
-        <div className="flex-none w-40">
+        <div className="flex-none w-36">
           <label className="block text-xs font-semibold text-parchment-muted uppercase tracking-widest mb-2">
             Course Code
           </label>
@@ -39,6 +48,23 @@ export default function SearchForm({ onSubmit, loading }) {
             disabled={loading}
             maxLength={20}
           />
+        </div>
+
+        {/* Term selector */}
+        <div className="flex-none w-36">
+          <label className="block text-xs font-semibold text-parchment-muted uppercase tracking-widest mb-2">
+            Term
+          </label>
+          <select
+            value={term}
+            onChange={e => setTerm(e.target.value)}
+            disabled={loading}
+            className="input-field appearance-none cursor-pointer"
+          >
+            {TERMS.map(t => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
         </div>
 
         {/* Preferences */}
