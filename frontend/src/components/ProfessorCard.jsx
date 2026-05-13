@@ -1,135 +1,125 @@
 import React, { useState } from 'react'
 
-const FIT_CONFIG = {
-  'Great fit':  { bg: '#14401a', border: '#2ea043', text: '#3fb950' },
-  'Good fit':   { bg: '#1a3a14', border: '#2ea043', text: '#56d364' },
-  'Decent fit': { bg: '#3d2a00', border: '#9e6a03', text: '#f0883e' },
-  'Not ideal':  { bg: '#3d1a1a', border: '#8b1a1a', text: '#f85149' },
+const FIT = {
+  'Great fit':  { pill: 'bg-emerald-950 border border-emerald-700 text-emerald-400' },
+  'Good fit':   { pill: 'bg-green-950 border border-green-700 text-green-400' },
+  'Decent fit': { pill: 'bg-amber-950 border border-amber-700 text-amber-400' },
+  'Not ideal':  { pill: 'bg-red-950 border border-red-800 text-red-400' },
 }
 
 function Stars({ rating }) {
-  if (rating == null) return <span style={{ color: '#6e7681', fontSize: 13 }}>No rating</span>
+  if (rating == null) return <span className="text-parchment-muted text-xs">No rating</span>
   const filled = Math.round(rating)
   return (
-    <span style={{ letterSpacing: 2, fontSize: 16 }} title={`${rating}/5`}>
-      {[1,2,3,4,5].map(i => (
-        <span key={i} style={{ color: i <= filled ? '#f5a623' : '#30363d' }}>★</span>
-      ))}
-      <span style={{ color: '#8b949e', fontSize: 13, marginLeft: 6 }}>{rating.toFixed(1)}</span>
+    <span className="flex items-center gap-1.5" title={`${rating}/5`}>
+      <span className="flex" style={{ letterSpacing: 2 }}>
+        {[1,2,3,4,5].map(i => (
+          <span key={i} className={i <= filled ? 'text-gold' : 'text-navy-400'}>★</span>
+        ))}
+      </span>
+      <span className="text-parchment-dim text-sm font-semibold">{rating.toFixed(1)}</span>
     </span>
   )
 }
 
-function StatPill({ label, value, color }) {
+function Stat({ label, value, className = '' }) {
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      background: '#1e2533', borderRadius: 8, padding: '8px 14px', minWidth: 80,
-    }}>
-      <span style={{ fontSize: 18, fontWeight: 600, color: color || '#e6edf3' }}>{value ?? '—'}</span>
-      <span style={{ fontSize: 11, color: '#6e7681', marginTop: 2 }}>{label}</span>
+    <div className="flex flex-col items-center bg-navy-600 rounded-lg px-3.5 py-2 min-w-[72px]">
+      <span className={`text-base font-semibold ${className}`}>{value ?? '—'}</span>
+      <span className="text-[10px] text-parchment-muted mt-0.5 text-center">{label}</span>
     </div>
   )
 }
 
 export default function ProfessorCard({ rec, index }) {
   const [expanded, setExpanded] = useState(false)
-  const fit = FIT_CONFIG[rec.match_score] || FIT_CONFIG['Decent fit']
-
+  const fit = FIT[rec.match_score] || FIT['Decent fit']
   const pct = v => v != null ? `${Math.round(v)}%` : '—'
+  const tags = rec.rmp_tags?.filter(Boolean) ?? []
 
   return (
-    <div style={{
-      background: '#161b27',
-      border: '1px solid #2a3145',
-      borderRadius: 12,
-      padding: '20px 24px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 14,
-      transition: 'border-color 0.15s',
-    }}
-    onMouseEnter={e => e.currentTarget.style.borderColor = '#3d4a6a'}
-    onMouseLeave={e => e.currentTarget.style.borderColor = '#2a3145'}
-    >
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{
-          width: 34, height: 34, borderRadius: '50%',
-          background: '#f5a623', color: '#0d1117',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontWeight: 700, fontSize: 14, flexShrink: 0,
-        }}>
+    <article className="card p-6 flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-start gap-3 flex-wrap">
+        {/* Rank badge */}
+        <div className="flex-none w-9 h-9 rounded-full bg-gold flex items-center justify-center
+                        text-navy-900 font-bold text-sm mt-0.5">
           {index + 1}
         </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, fontWeight: 400, color: '#e6edf3' }}>
+        {/* Name + section info */}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-serif text-xl text-parchment leading-snug">
             {rec.instructor_name}
           </h3>
-          <p style={{ fontSize: 13, color: '#6e7681', marginTop: 2 }}>
-            Section {rec.section_number} &nbsp;·&nbsp; CRN {rec.crn}
-            {rec.schedule ? ` · ${rec.schedule}` : ''}
+          <p className="text-xs text-parchment-muted mt-1">
+            Section {rec.section_number}
+            {rec.crn ? <> &middot; CRN {rec.crn}</> : null}
+            {rec.schedule ? <> &middot; {rec.schedule}</> : null}
           </p>
         </div>
 
-        <span style={{
-          background: fit.bg, border: `1px solid ${fit.border}`,
-          color: fit.text, borderRadius: 20, padding: '4px 12px',
-          fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-        }}>
+        {/* Match score badge */}
+        <span className={`badge ${fit.pill} whitespace-nowrap flex-none`}>
           {rec.match_score}
         </span>
       </div>
 
-      {/* RMP stats row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      {/* RMP stats */}
+      <div className="flex items-center gap-3 flex-wrap">
         <Stars rating={rec.rmp_rating} />
-        <div style={{ display: 'flex', gap: 8, marginLeft: 4 }}>
-          <StatPill label="Difficulty" value={rec.rmp_difficulty?.toFixed(1)} color="#f0883e" />
-          <StatPill label="Would Retake" value={pct(rec.rmp_would_take_again)} color="#3fb950" />
+        <div className="flex gap-2">
+          <Stat label="Difficulty" value={rec.rmp_difficulty?.toFixed(1)} className="text-amber-400" />
+          <Stat label="Would Retake" value={pct(rec.rmp_would_take_again)} className="text-emerald-400" />
           {rec.rmp_num_ratings != null && (
-            <StatPill label="Ratings" value={rec.rmp_num_ratings} />
+            <Stat label="Ratings" value={rec.rmp_num_ratings} className="text-parchment-dim" />
           )}
         </div>
       </div>
 
-      {/* Explanation */}
+      {/* Tags */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {tags.slice(0, 6).map(tag => (
+            <span key={tag}
+              className="text-[11px] bg-navy-600 border border-navy-400 text-parchment-dim
+                         rounded-full px-2.5 py-0.5">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Claude's explanation */}
       {rec.explanation && (
         <div>
-          <p style={{
-            fontSize: 14, color: '#c9d1d9', lineHeight: 1.6,
-            display: expanded ? 'block' : '-webkit-box',
-            WebkitLineClamp: expanded ? 'none' : 3,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}>
+          <p className={`text-sm text-parchment-dim leading-relaxed
+            ${expanded ? '' : 'line-clamp-3'}`}>
             {rec.explanation}
           </p>
           {rec.explanation.length > 200 && (
-            <button onClick={() => setExpanded(e => !e)} style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#f5a623', fontSize: 13, marginTop: 4, padding: 0,
-            }}>
+            <button
+              onClick={() => setExpanded(e => !e)}
+              className="text-xs text-gold hover:text-gold-light mt-1.5 transition-colors duration-150"
+            >
               {expanded ? 'Show less ▲' : 'Read more ▼'}
             </button>
           )}
         </div>
       )}
 
-      {/* Footer */}
+      {/* RMP link */}
       {rec.rmp_url && (
-        <a href={rec.rmp_url} target="_blank" rel="noopener noreferrer" style={{
-          fontSize: 13, color: '#f5a623', textDecoration: 'none',
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-          opacity: 0.85,
-        }}
-        onMouseEnter={e => e.currentTarget.style.opacity = 1}
-        onMouseLeave={e => e.currentTarget.style.opacity = 0.85}
+        <a
+          href={rec.rmp_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-gold/70 hover:text-gold transition-colors duration-150
+                     inline-flex items-center gap-1 mt-0.5 w-fit"
         >
           View on Rate My Professors ↗
         </a>
       )}
-    </div>
+    </article>
   )
 }

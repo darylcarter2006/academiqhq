@@ -106,21 +106,22 @@ def get_current_term_code() -> str:
     month = now.month
     year = now.year
 
-    if 1 <= month <= 5:
-        # Spring semester, but if it's May we might want Summer or Fall
-        if month == 5 and now.day > 15:
-            return f"{year}05"  # Summer
+    if 1 <= month <= 4:
         return f"{year}01"  # Spring
+    elif month == 5:
+        # Spring semester ends late April / early May.
+        # By May 1 students are registering for Summer or Fall.
+        return f"{year}05"  # Summer
     elif 6 <= month <= 7:
         return f"{year}05"  # Summer
     elif 8 <= month <= 10:
         return f"{year}08"  # Fall
     elif month == 11:
-        # November: registration for Spring opens, bias toward Spring next year
-        return f"{year + 1}01"  # Spring (next year)
+        # Registration for Spring opens; bias toward next Spring.
+        return f"{year + 1}01"
     else:
-        # December: same, students are registering for Spring
-        return f"{year + 1}01"  # Spring (next year)
+        # December: same.
+        return f"{year + 1}01"
 
 
 def term_code_to_description(term_code: str) -> str:
@@ -170,55 +171,69 @@ def _parse_course_code(course_code: str) -> tuple[str, str]:
     return match.group(1), match.group(2)
 
 
-def _parse_meeting_times_api(faculty_and_meetings: list[dict]) -> tuple[str, list[MeetingTime]]:
+def _parse_meeting_times_api(
+    faculty: list[dict],
+    meetings_faculty: list[dict],
+) -> tuple[str, list[MeetingTime]]:
     """
     Extract instructor name and meeting times from Banner 9 API response.
-    The faculty field is a list of dicts, each with instructor info and
-    meeting time details.
+
+    Banner 9 puts instructor data in two places depending on the deployment:
+      - top-level `faculty[].displayName`  (sometimes empty at UNCG)
+      - `meetingsFaculty[].faculty[].displayName`  (always populated)
+    Meeting times are always in `meetingsFaculty[].meetingTime`.
+    We check both sources so neither alone is a single point of failure.
     """
     instructor = "TBA"
     meetings = []
 
-    if not faculty_and_meetings:
-        return instructor, meetings
+    # 1. Try the top-level faculty list first.
+    for entry in faculty:
+        display_name = (entry.get("displayName") or "").strip()
+        if display_name and display_name.upper() not in ("TBA", "STAFF", ""):
+            instructor = display_name
+            break
 
-    for entry in faculty_and_meetings:
-        # Extract instructor from the first faculty entry that has a name
+    # 2. Walk meetingsFaculty for meeting times AND as a fallback for the name.
+    day_map = [
+        ("monday", "M"),
+        ("tuesday", "T"),
+        ("wednesday", "W"),
+        ("thursday", "R"),
+        ("friday", "F"),
+        ("saturday", "S"),
+        ("sunday", "U"),
+    ]
+
+    for entry in meetings_faculty:
+        # Fallback instructor from nested faculty list
         if instructor == "TBA":
-            display_name = entry.get("displayName", "")
-            if display_name and display_name != "TBA":
-                instructor = display_name
+            for fac in entry.get("faculty", []):
+                display_name = (fac.get("displayName") or "").strip()
+                if display_name and display_name.upper() not in ("TBA", "STAFF", ""):
+                    instructor = display_name
+                    break
 
-        # Extract meeting time info
+        # Meeting time
         meeting_time = entry.get("meetingTime", {})
         if not meeting_time:
             continue
 
-        # Build days string from boolean fields
-        day_map = [
-            ("monday", "M"),
-            ("tuesday", "T"),
-            ("wednesday", "W"),
-            ("thursday", "R"),
-            ("friday", "F"),
-            ("saturday", "S"),
-            ("sunday", "U"),
-        ]
-        days = ""
-        for key, letter in day_map:
-            if meeting_time.get(key, False):
-                days += letter
+        days = "".join(letter for key, letter in day_map if meeting_time.get(key, False))
         if not days:
             days = "TBA"
 
-        # Parse times
         begin = meeting_time.get("beginTime", "")
         end = meeting_time.get("endTime", "")
         start_time = _format_time(begin) if begin else "TBA"
         end_time = _format_time(end) if end else "TBA"
 
-        building = meeting_time.get("buildingDescription", "") or meeting_time.get("building", "") or "TBA"
-        room = meeting_time.get("room", "") or "TBA"
+        building = (
+            meeting_time.get("buildingDescription")
+            or meeting_time.get("building")
+            or "TBA"
+        )
+        room = meeting_time.get("room") or "TBA"
 
         meetings.append(MeetingTime(
             days=days,
@@ -347,7 +362,8 @@ async def fetch_sections_api(
 
         for item in results:
             instructor, meetings = _parse_meeting_times_api(
-                item.get("faculty", [])
+                item.get("faculty", []),
+                item.get("meetingsFaculty", []),
             )
 
             # Enrollment data
