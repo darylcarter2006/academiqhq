@@ -26,7 +26,7 @@ from typing import Optional
 
 from rapidfuzz import fuzz, process
 
-from backend.scraper.rmp import (
+from scraper.rmp import (
     ProfessorRMP,
     search_professor,
     get_professor_with_reviews,
