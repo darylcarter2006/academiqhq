@@ -175,12 +175,11 @@ def _score_match(banner_name: NormalizedName, rmp_prof: ProfessorRMP) -> float:
         rmp_prof.last_name.lower(),
     )
 
-    # If last names don't match but first names do exactly, this is likely a
-    # name change (marriage/divorce). Accept as a plausible match.
+    # If last names don't match, reject here.
+    # Name-change matching (exact first name, different last) is handled as
+    # a post-processing step in match_professor(), where we can check that
+    # exactly one candidate has the matching first name (uniqueness guarantee).
     if last_score < LAST_NAME_THRESHOLD:
-        if (len(banner_first) > 2
-                and banner_first == rmp_first):
-            return 72.0  # Above FULL_NAME_THRESHOLD; exact first-name match despite last name change
         return 0.0
 
     # Check first name
@@ -217,6 +216,63 @@ def _score_match(banner_name: NormalizedName, rmp_prof: ProfessorRMP) -> float:
     return combined
 
 
+# School name fragment used to identify UNCG profiles in unfiltered searches
+_UNCG_SCHOOL_FRAGMENT = "greensboro"
+
+
+async def _search_with_fallback(
+    search_term: str,
+    last_name: str,
+    school_id: str,
+) -> list[ProfessorRMP]:
+    """
+    Search RMP with up to four strategies, stopping as soon as candidates are found:
+      1. Full name + school filter  (fast, reliable when it works)
+      2. Last name + school filter  (broader, catches initials-only Banner names)
+      3. Full name unfiltered, keep only UNCG results  (RMP school filter is flaky)
+      4. Last name unfiltered, keep only UNCG results  (widest net)
+    """
+    def _keep_uncg(profs: list[ProfessorRMP]) -> list[ProfessorRMP]:
+        return [p for p in profs if _UNCG_SCHOOL_FRAGMENT in p.school.lower()]
+
+    # 1. School-filtered full name
+    try:
+        results = await search_professor(search_term, school_id)
+        if results:
+            return results
+    except Exception as e:
+        logger.warning(f"RMP search '{search_term}' (filtered) failed: {e}")
+
+    # 2. School-filtered last name
+    if search_term != last_name:
+        try:
+            results = await search_professor(last_name, school_id)
+            if results:
+                return results
+        except Exception as e:
+            logger.warning(f"RMP search '{last_name}' (filtered) failed: {e}")
+
+    # 3. Unfiltered full name, keep UNCG
+    logger.info(f"School-filtered search empty for '{search_term}', trying unfiltered…")
+    try:
+        results = _keep_uncg(await search_professor(search_term, school_id=None))
+        if results:
+            return results
+    except Exception as e:
+        logger.warning(f"RMP search '{search_term}' (unfiltered) failed: {e}")
+
+    # 4. Unfiltered last name, keep UNCG
+    if search_term != last_name:
+        try:
+            results = _keep_uncg(await search_professor(last_name, school_id=None))
+            if results:
+                return results
+        except Exception as e:
+            logger.warning(f"RMP search '{last_name}' (unfiltered) failed: {e}")
+
+    return []
+
+
 async def match_professor(
     banner_name: str,
     school_id: str = UNCG_SCHOOL_ID,
@@ -226,15 +282,6 @@ async def match_professor(
     """
     Given a Banner instructor name, find and return the best matching
     RMP professor profile with reviews.
-
-    Args:
-        banner_name: Raw instructor name from Banner
-        school_id: RMP school ID (defaults to UNCG)
-        num_reviews: Number of reviews to fetch for the matched professor
-        threshold: Minimum match score (0-100) to accept a match
-
-    Returns:
-        ProfessorRMP with reviews if a good match is found, None otherwise.
     """
     normalized = normalize_banner_name(banner_name)
 
@@ -244,27 +291,8 @@ async def match_professor(
 
     logger.info(f"Matching '{banner_name}' -> normalized: '{normalized.full_name}'")
 
-    # Search RMP using the last name (most reliable search term)
-    search_term = normalized.last_name
-    if len(normalized.first_name) > 1:
-        # If we have a full first name, include it for better search results
-        search_term = normalized.full_name
-
-    try:
-        candidates = await search_professor(search_term, school_id)
-    except Exception as e:
-        logger.error(f"RMP search failed for '{search_term}': {e}")
-        return None
-
-    if not candidates:
-        # Try searching with just the last name as a fallback
-        if search_term != normalized.last_name:
-            logger.info(f"No results for '{search_term}', trying last name only...")
-            try:
-                candidates = await search_professor(normalized.last_name, school_id)
-            except Exception as e:
-                logger.error(f"RMP fallback search failed: {e}")
-                return None
+    search_term = normalized.full_name if len(normalized.first_name) > 1 else normalized.last_name
+    candidates = await _search_with_fallback(search_term, normalized.last_name, school_id)
 
     if not candidates:
         logger.info(f"No RMP matches found for '{banner_name}'")
@@ -279,11 +307,34 @@ async def match_professor(
             logger.debug(f"  Candidate: {prof.name} (score={score:.1f})")
 
     if not scored:
-        logger.info(
-            f"No RMP match above threshold ({threshold}) for '{banner_name}'. "
-            f"Best candidates: {[p.name for p in candidates[:3]]}"
-        )
-        return None
+        # Name-change fallback: professor may be listed under a different last name on RMP
+        # (marriage, divorce, etc.). Only apply when exactly ONE candidate has a matching
+        # first name — uniqueness prevents false positives from common names (e.g. "Martin").
+        if len(normalized.first_name) > 2:
+            name_change_candidates = [
+                p for p in candidates
+                if normalized.first_name.lower() == p.first_name.lower()
+                and fuzz.ratio(normalized.last_name.lower(), p.last_name.lower()) < LAST_NAME_THRESHOLD
+            ]
+            if len(name_change_candidates) == 1:
+                nc = name_change_candidates[0]
+                logger.info(
+                    f"Name-change match: '{banner_name}' -> {nc.name} "
+                    f"(exact first name, different last — likely name change)"
+                )
+                scored = [(72.0, nc)]
+            else:
+                logger.info(
+                    f"No RMP match above threshold ({threshold}) for '{banner_name}'. "
+                    f"Best candidates: {[p.name for p in candidates[:3]]}"
+                )
+                return None
+        else:
+            logger.info(
+                f"No RMP match above threshold ({threshold}) for '{banner_name}'. "
+                f"Best candidates: {[p.name for p in candidates[:3]]}"
+            )
+            return None
 
     # Sort by score descending, take the best match
     scored.sort(key=lambda x: x[0], reverse=True)
