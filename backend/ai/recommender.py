@@ -76,7 +76,7 @@ async def rank_professors(
     try:
         message = await client.messages.create(
             model='claude-sonnet-4-6',
-            max_tokens=2048,
+            max_tokens=8192,
             messages=[{'role': 'user', 'content': prompt}],
         )
         raw = message.content[0].text.strip()
