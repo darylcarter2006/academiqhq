@@ -84,10 +84,11 @@ async def recommend(req: RecommendRequest):
             prof = await match_professor(name)
             if prof is not None:
                 wta = prof.would_take_again_pct
+                has_ratings = prof.num_ratings > 0
                 seen[name] = {
-                    'rating': prof.avg_rating,
-                    'difficulty': prof.avg_difficulty,
-                    'would_take_again': wta if wta >= 0 else None,
+                    'rating': prof.avg_rating if has_ratings else None,
+                    'difficulty': prof.avg_difficulty if has_ratings else None,
+                    'would_take_again': (wta if wta >= 0 else None) if has_ratings else None,
                     'num_ratings': prof.num_ratings,
                     'url': prof.rmp_url,
                     'tags': prof.top_tags,

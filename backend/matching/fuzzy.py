@@ -220,59 +220,6 @@ def _score_match(banner_name: NormalizedName, rmp_prof: ProfessorRMP) -> float:
 _UNCG_SCHOOL_FRAGMENT = "greensboro"
 
 
-async def _search_with_fallback(
-    search_term: str,
-    last_name: str,
-    school_id: str,
-) -> list[ProfessorRMP]:
-    """
-    Search RMP with up to four strategies, stopping as soon as candidates are found:
-      1. Full name + school filter  (fast, reliable when it works)
-      2. Last name + school filter  (broader, catches initials-only Banner names)
-      3. Full name unfiltered, keep only UNCG results  (RMP school filter is flaky)
-      4. Last name unfiltered, keep only UNCG results  (widest net)
-    """
-    def _keep_uncg(profs: list[ProfessorRMP]) -> list[ProfessorRMP]:
-        return [p for p in profs if _UNCG_SCHOOL_FRAGMENT in p.school.lower()]
-
-    # 1. School-filtered full name
-    try:
-        results = await search_professor(search_term, school_id)
-        if results:
-            return results
-    except Exception as e:
-        logger.warning(f"RMP search '{search_term}' (filtered) failed: {e}")
-
-    # 2. School-filtered last name
-    if search_term != last_name:
-        try:
-            results = await search_professor(last_name, school_id)
-            if results:
-                return results
-        except Exception as e:
-            logger.warning(f"RMP search '{last_name}' (filtered) failed: {e}")
-
-    # 3. Unfiltered full name, keep UNCG
-    logger.info(f"School-filtered search empty for '{search_term}', trying unfiltered…")
-    try:
-        results = _keep_uncg(await search_professor(search_term, school_id=None))
-        if results:
-            return results
-    except Exception as e:
-        logger.warning(f"RMP search '{search_term}' (unfiltered) failed: {e}")
-
-    # 4. Unfiltered last name, keep UNCG
-    if search_term != last_name:
-        try:
-            results = _keep_uncg(await search_professor(last_name, school_id=None))
-            if results:
-                return results
-        except Exception as e:
-            logger.warning(f"RMP search '{last_name}' (unfiltered) failed: {e}")
-
-    return []
-
-
 async def match_professor(
     banner_name: str,
     school_id: str = UNCG_SCHOOL_ID,
@@ -282,6 +229,15 @@ async def match_professor(
     """
     Given a Banner instructor name, find and return the best matching
     RMP professor profile with reviews.
+
+    Tries up to four search strategies, stopping as soon as a candidate
+    scores above threshold. This avoids false positives from the RMP school
+    filter returning professors from other schools with the same first/last name.
+
+      1. Full name + school filter
+      2. Last name + school filter
+      3. Full name, unfiltered — keep only UNCG results
+      4. Last name, unfiltered — keep only UNCG results
     """
     normalized = normalize_banner_name(banner_name)
 
@@ -292,19 +248,54 @@ async def match_professor(
     logger.info(f"Matching '{banner_name}' -> normalized: '{normalized.full_name}'")
 
     search_term = normalized.full_name if len(normalized.first_name) > 1 else normalized.last_name
-    candidates = await _search_with_fallback(search_term, normalized.last_name, school_id)
+    last_name = normalized.last_name
 
-    if not candidates:
-        logger.info(f"No RMP matches found for '{banner_name}'")
-        return None
+    # Build ordered strategies, deduplicating when search_term == last_name
+    strategies: list[tuple[str, str | None]] = []
+    seen_strats: set[tuple[str, str | None]] = set()
+    for term, sid in [
+        (search_term, school_id),
+        (last_name, school_id),
+        (search_term, None),
+        (last_name, None),
+    ]:
+        key = (term, sid)
+        if key not in seen_strats:
+            strategies.append(key)
+            seen_strats.add(key)
 
-    # Score all candidates
-    scored = []
-    for prof in candidates:
-        score = _score_match(normalized, prof)
-        if score >= threshold:
-            scored.append((score, prof))
-            logger.debug(f"  Candidate: {prof.name} (score={score:.1f})")
+    all_candidates: list[ProfessorRMP] = []
+    seen_ids: set[str] = set()
+    scored: list[tuple[float, ProfessorRMP]] = []
+
+    for term, sid in strategies:
+        try:
+            results = await search_professor(term, sid)
+        except Exception as e:
+            logger.warning(f"RMP search '{term}' (school={sid}) failed: {e}")
+            continue
+
+        # For unfiltered searches, restrict to UNCG by school name
+        if sid is None:
+            results = [p for p in results if _UNCG_SCHOOL_FRAGMENT in p.school.lower()]
+
+        # Accumulate new candidates (dedup by RMP ID)
+        for p in results:
+            if p.rmp_id not in seen_ids:
+                seen_ids.add(p.rmp_id)
+                all_candidates.append(p)
+
+        # Score all accumulated candidates and stop if we have a match
+        scored = [
+            (s, p) for p in all_candidates
+            if (s := _score_match(normalized, p)) >= threshold
+        ]
+        if scored:
+            logger.debug(
+                f"Found {len(scored)} match(es) after searching '{term}' "
+                f"(school={'filtered' if sid else 'unfiltered'})"
+            )
+            break
 
     if not scored:
         # Name-change fallback: professor may be listed under a different last name on RMP
@@ -312,7 +303,7 @@ async def match_professor(
         # first name — uniqueness prevents false positives from common names (e.g. "Martin").
         if len(normalized.first_name) > 2:
             name_change_candidates = [
-                p for p in candidates
+                p for p in all_candidates
                 if normalized.first_name.lower() == p.first_name.lower()
                 and fuzz.ratio(normalized.last_name.lower(), p.last_name.lower()) < LAST_NAME_THRESHOLD
             ]
@@ -326,13 +317,13 @@ async def match_professor(
             else:
                 logger.info(
                     f"No RMP match above threshold ({threshold}) for '{banner_name}'. "
-                    f"Best candidates: {[p.name for p in candidates[:3]]}"
+                    f"Best candidates: {[p.name for p in all_candidates[:3]]}"
                 )
                 return None
         else:
             logger.info(
                 f"No RMP match above threshold ({threshold}) for '{banner_name}'. "
-                f"Best candidates: {[p.name for p in candidates[:3]]}"
+                f"Best candidates: {[p.name for p in all_candidates[:3]]}"
             )
             return None
 

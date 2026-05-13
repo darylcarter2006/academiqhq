@@ -40,8 +40,10 @@ def _build_prompt(professors: list[dict], preferences: str, course_code: str) ->
             f'  |  Schedule: {p.get("schedule") or "TBA"}'
         )
         lines.append(
-            f'   RMP: rating={r}/5  difficulty={d}/5  would-retake={wta}%  '
-            f'ratings={n}  tags=[{tags}]'
+            f'   RMP: rating={r if r is not None else "N/A"}/5'
+            f'  difficulty={d if d is not None else "N/A"}/5'
+            f'  would-retake={f"{wta}%" if wta is not None else "N/A"}'
+            f'  ratings={n}  tags=[{tags}]'
         )
         lines.append('')
 
@@ -99,11 +101,10 @@ async def rank_professors(
     for rec in ranked:
         crn = str(rec.get('crn', ''))
         orig = orig_by_crn.get(crn, {})
-        # Always restore these from scraped data — Claude may invent URLs or drop fields.
-        # rmp_url is forced to None when no match was found (prevents Claude fabricating links).
-        rec['rmp_url'] = orig.get('rmp_url')
-        for key in ('rmp_tags', 'schedule', 'section_number'):
-            if orig.get(key) is not None:
-                rec[key] = orig[key]
+        # Always restore scraped fields — Claude may fabricate or alter these.
+        for key in ('rmp_url', 'rmp_rating', 'rmp_difficulty',
+                    'rmp_would_take_again', 'rmp_num_ratings',
+                    'rmp_tags', 'schedule', 'section_number'):
+            rec[key] = orig.get(key)
 
     return ranked
