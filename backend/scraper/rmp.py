@@ -232,8 +232,13 @@ async def _graphql_request(query: str, variables: dict) -> dict:
         result = resp.json()
 
         if "errors" in result:
-            logger.error(f"RMP GraphQL errors: {result['errors']}")
-            raise RMPError(f"GraphQL errors: {result['errors']}")
+            if "data" in result and result["data"]:
+                # Partial errors (e.g. one node references a deleted school) —
+                # log as warning and continue with whatever data we got.
+                logger.warning(f"RMP GraphQL partial errors (continuing): {result['errors']}")
+            else:
+                logger.error(f"RMP GraphQL errors: {result['errors']}")
+                raise RMPError(f"GraphQL errors: {result['errors']}")
 
         return result.get("data", {})
 
@@ -292,7 +297,7 @@ def _build_professor(node: dict, reviews: list[Review] = None) -> ProfessorRMP:
         first_name=node.get("firstName", ""),
         last_name=node.get("lastName", ""),
         department=node.get("department", ""),
-        school=node.get("school", {}).get("name", ""),
+        school=(node.get("school") or {}).get("name", ""),
         avg_rating=node.get("avgRating", 0.0) or 0.0,
         avg_difficulty=node.get("avgDifficulty", 0.0) or 0.0,
         would_take_again_pct=round(wta_pct, 1),

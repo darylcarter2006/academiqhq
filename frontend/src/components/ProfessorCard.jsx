@@ -34,7 +34,7 @@ function Stat({ label, value, className = '' }) {
 export default function ProfessorCard({ rec, index }) {
   const [expanded, setExpanded] = useState(false)
   const fit = FIT[rec.match_score] || FIT['Decent fit']
-  const pct = v => v != null ? `${Math.round(v)}%` : '—'
+  const pct = v => (v != null && v >= 0) ? `${Math.round(v)}%` : '—'
   const tags = rec.rmp_tags?.filter(Boolean) ?? []
 
   return (
@@ -69,9 +69,13 @@ export default function ProfessorCard({ rec, index }) {
       <div className="flex items-center gap-3 flex-wrap">
         <Stars rating={rec.rmp_rating} />
         <div className="flex gap-2">
-          <Stat label="Difficulty" value={rec.rmp_difficulty?.toFixed(1)} className="text-amber-400" />
-          <Stat label="Would Retake" value={pct(rec.rmp_would_take_again)} className="text-emerald-400" />
-          {rec.rmp_num_ratings != null && (
+          {rec.rmp_difficulty != null && (
+            <Stat label="Difficulty" value={rec.rmp_difficulty.toFixed(1)} className="text-amber-400" />
+          )}
+          {rec.rmp_would_take_again != null && (
+            <Stat label="Would Retake" value={pct(rec.rmp_would_take_again)} className="text-emerald-400" />
+          )}
+          {rec.rmp_num_ratings > 0 && (
             <Stat label="Ratings" value={rec.rmp_num_ratings} className="text-parchment-dim" />
           )}
         </div>

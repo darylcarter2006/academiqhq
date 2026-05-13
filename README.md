@@ -1,106 +1,75 @@
 # UNCG Professor Recommender
 
-Find the best professor for your UNCG course. Enter a course code, describe what matters to you, and get AI-ranked recommendations backed by live Banner enrollment data and Rate My Professors ratings.
+> Find the best professor for your UNCG course — powered by live Banner enrollment data, Rate My Professors ratings, and Claude AI.
 
-## What it does
+Enter a course code. Describe what matters to you. Get a ranked list of professors with personalized explanations in seconds.
 
-1. **Scrapes UNCG Banner** for all open sections of a course
-2. **Looks up each instructor** on Rate My Professors (handles name variations, initials, name changes)
-3. **Asks Claude** to rank the professors based on your preferences, with personalized explanations
+---
 
-## Setup
-
-### Prerequisites
-
-- Python 3.11+
-- Node.js 18+
-- An Anthropic API key
-
-### Backend
-
-```bash
-cd backend
-python -m venv venv
-venv/bin/pip install -r requirements.txt
-
-# Create your .env file
-cp .env.example .env
-# Edit backend/.env and add your ANTHROPIC_API_KEY
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-```
-
-## Running
-
-Open two terminals:
-
-```bash
-# Terminal 1 — backend
-cd backend && venv/bin/uvicorn main:app --reload
-
-# Terminal 2 — frontend
-cd frontend && npm run dev
-```
-
-Open http://localhost:5173 in your browser.
-
-## Usage
-
-1. Enter a course code like `CSC 330` or `MAT 191`
-2. Select a term (defaults to the upcoming term)
-3. Describe what you're looking for — grading style, lecture quality, workload, etc.
-4. Click **Find Professors**
-
-Results show each professor's RMP rating, difficulty, would-retake percentage, and a personalized fit score with an explanation written by Claude.
-
-## Architecture
+## How it works
 
 ```
-POST /api/recommend
-  scraper/banner.py     — Ellucian Banner 9 async scraper (3-step session flow)
-  scraper/rmp.py        — Rate My Professors GraphQL client
-  matching/fuzzy.py     — RapidFuzz name matching (Banner "Last, First" → RMP "First Last")
-  ai/recommender.py     — Claude claude-sonnet-4-6 ranks and explains
+You enter a course + preferences
+        ↓
+Live scrape of UNCG Banner for all open sections
+        ↓
+Each instructor matched against Rate My Professors
+        ↓
+Claude ranks them based on your preferences
+        ↓
+Ranked results with ratings, tags, and explanations
 ```
 
-- Banner instructor data requires a separate per-CRN call to `/getFacultyMeetingTimes` — fetched concurrently with `asyncio.gather`
-- RMP school-filtered search is unreliable; falls back to unfiltered search filtered by school name
-- Name normalization handles initials (`"Smith, J"` → matches `"John Smith"`), suffixes (Jr., Ph.D.), and name changes (different last name, exact first name match)
-- Claude's output is validated and original scraped data is restored for any fields Claude may fabricate (e.g. RMP URLs)
+**The matching layer** normalizes Banner's `"Last, First"` format, handles initials, name changes, and falls back through progressively broader RMP searches until a confident match is found or the professor isn't on RMP.
+
+**The AI layer** receives all section data and RMP stats, then writes a personalized fit score and explanation for each professor relative to your stated preferences.
+
+---
+
+## Stack
+
+| Layer | Tech |
+|---|---|
+| Frontend | React + Vite + Tailwind CSS |
+| Backend | FastAPI (Python) |
+| Enrollment data | UNCG Banner 9 (scraped) |
+| Professor ratings | Rate My Professors GraphQL API |
+| Name matching | RapidFuzz |
+| AI ranking | Claude claude-sonnet-4-6 |
+
+---
+
+## Features
+
+- Searches all open sections for any UNCG course code
+- Fuzzy name matching handles initials, suffixes, and name changes
+- Falls back to unfiltered RMP search when the school filter returns wrong results
+- Ratings, difficulty, would-retake %, and student tags per professor
+- Claude writes a 2–3 sentence personalized explanation for each match
+- Graceful fallback if Claude or RMP is unavailable
+- Term selector for upcoming semesters
+
+---
 
 ## Project structure
 
 ```
-uncg-professor-recommender/
-  backend/
-    main.py               FastAPI app entry point
-    routes/
-      recommend.py        POST /api/recommend endpoint
-    scraper/
-      banner.py           UNCG Banner 9 scraper
-      rmp.py              Rate My Professors GraphQL client
-    matching/
-      fuzzy.py            Banner → RMP name matching
-    ai/
-      recommender.py      Claude integration
-    db/
-      database.py         SQLite cache (7-day TTL)
-  frontend/
-    src/
-      pages/Home.jsx      Main page
-      components/
-        SearchForm.jsx     Course + preferences form
-        ProfessorCard.jsx  Result card with ratings
-        LoadingSkeleton.jsx Loading state
+backend/
+  main.py               FastAPI entry point
+  routes/recommend.py   POST /api/recommend
+  scraper/banner.py     UNCG Banner 9 async scraper
+  scraper/rmp.py        Rate My Professors GraphQL client
+  matching/fuzzy.py     Banner → RMP name matching
+  ai/recommender.py     Claude integration
+  db/database.py        SQLite cache (7-day TTL)
+frontend/
+  src/pages/Home.jsx
+  src/components/
+    SearchForm.jsx
+    ProfessorCard.jsx
+    LoadingSkeleton.jsx
 ```
 
-## Notes
+---
 
-- `backend/cache.db` caches RMP results for 7 days. Delete it to force fresh fetches.
-- `temp-vite/` is a leftover scaffold directory and is not part of the app.
-- CORS is restricted to `localhost:5173` and `localhost:4173`. Update `main.py` before deploying.
+*Data sourced from UNCG Banner and Rate My Professors. Not affiliated with UNCG or RMP.*
