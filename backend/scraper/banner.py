@@ -151,6 +151,9 @@ BANNER9_SEARCH_RESULTS = f"{BANNER9_BASE}/searchResults/searchResults"
 # Reset the data form (clears previous search state in the session)
 BANNER9_RESET = f"{BANNER9_BASE}/classSearch/resetDataForm"
 
+# Per-CRN faculty + meeting times (instructor names only available here)
+BANNER9_FACULTY_MEETINGS = f"{BANNER9_BASE}/searchResults/getFacultyMeetingTimes"
+
 # Get available terms
 BANNER9_GET_TERMS = f"{BANNER9_BASE}/classSearch/getTerms"
 
@@ -360,21 +363,9 @@ async def fetch_sections_api(
         total = data.get("totalCount", 0)
         logger.info(f"Found {total} section(s) for {subject} {course_number}")
 
+        # Build sections with basic info first (no instructor yet)
+        raw_sections = []
         for item in results:
-            instructor, meetings = _parse_meeting_times_api(
-                item.get("faculty", []),
-                item.get("meetingsFaculty", []),
-            )
-
-            # Enrollment data
-            seats_total = item.get("maximumEnrollment", 0) or 0
-            seats_taken = item.get("enrollment", 0) or 0
-            seats_available = item.get("seatsAvailable", 0) or 0
-            waitlist_total = item.get("waitCapacity", 0) or 0
-            waitlist_taken = item.get("waitCount", 0) or 0
-            waitlist_available = item.get("waitAvailable", 0) or 0
-
-            # Credits: could be a range (e.g. "1.000 - 3.000") or fixed
             credit_low = item.get("creditHourLow", 0) or 0
             credit_high = item.get("creditHourHigh", 0)
             if credit_high and credit_high != credit_low:
@@ -382,26 +373,67 @@ async def fetch_sections_api(
             else:
                 credits = str(int(credit_low)) if credit_low else ""
 
-            section = Section(
-                crn=str(item.get("courseReferenceNumber", "")),
-                course_code=f"{item.get('subject', subject)} {item.get('courseNumber', course_number)}",
-                section_number=item.get("sequenceNumber", ""),
-                title=item.get("courseTitle", ""),
+            raw_sections.append({
+                "crn": str(item.get("courseReferenceNumber", "")),
+                "course_code": f"{item.get('subject', subject)} {item.get('courseNumber', course_number)}",
+                "section_number": item.get("sequenceNumber", ""),
+                "title": item.get("courseTitle", ""),
+                "credits": credits,
+                "seats_total": item.get("maximumEnrollment", 0) or 0,
+                "seats_taken": item.get("enrollment", 0) or 0,
+                "seats_available": item.get("seatsAvailable", 0) or 0,
+                "waitlist_total": item.get("waitCapacity", 0) or 0,
+                "waitlist_taken": item.get("waitCount", 0) or 0,
+                "waitlist_available": item.get("waitAvailable", 0) or 0,
+                "campus": item.get("campusDescription", ""),
+                "instruction_method": item.get("instructionalMethodDescription", ""),
+            })
+
+        # Fetch instructor + meeting times per CRN concurrently.
+        # The search results endpoint never populates faculty[]; the data
+        # is only available via getFacultyMeetingTimes.
+        import asyncio as _asyncio
+
+        async def _fetch_fmt(crn: str):
+            try:
+                r = await client.get(
+                    BANNER9_FACULTY_MEETINGS,
+                    params={"term": term_code, "courseReferenceNumber": crn},
+                    headers={"X-Requested-With": "XMLHttpRequest"},
+                )
+                r.raise_for_status()
+                fmt_list = r.json().get("fmt", [])
+                return crn, _parse_meeting_times_api([], fmt_list)
+            except Exception as exc:
+                logger.warning(f"getFacultyMeetingTimes failed for CRN {crn}: {exc}")
+                return crn, ("TBA", [])
+
+        fmt_results = await _asyncio.gather(
+            *[_fetch_fmt(s["crn"]) for s in raw_sections]
+        )
+        fmt_by_crn = dict(fmt_results)
+
+        for s in raw_sections:
+            instructor, meetings = fmt_by_crn.get(s["crn"], ("TBA", []))
+            sections.append(Section(
+                crn=s["crn"],
+                course_code=s["course_code"],
+                section_number=s["section_number"],
+                title=s["title"],
                 instructor=instructor,
                 meetings=meetings,
-                credits=credits,
-                seats_total=seats_total,
-                seats_taken=seats_taken,
-                seats_available=seats_available,
-                waitlist_total=waitlist_total,
-                waitlist_taken=waitlist_taken,
-                waitlist_available=waitlist_available,
+                credits=s["credits"],
+                seats_total=s["seats_total"],
+                seats_taken=s["seats_taken"],
+                seats_available=s["seats_available"],
+                waitlist_total=s["waitlist_total"],
+                waitlist_taken=s["waitlist_taken"],
+                waitlist_available=s["waitlist_available"],
                 term=term_code,
                 term_desc=term_desc,
-                campus=item.get("campusDescription", ""),
-                instruction_method=item.get("instructionalMethodDescription", ""),
-            )
-            sections.append(section)
+                campus=s["campus"],
+                instruction_method=s["instruction_method"],
+            ))
 
     return sections
 

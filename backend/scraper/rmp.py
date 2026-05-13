@@ -172,7 +172,6 @@ query TeacherRatingsPageQuery(
             class
             date
             helpfulRating
-            notHelpfulRating
             grade
             isForOnlineClass
             attendanceMandatory
@@ -269,7 +268,7 @@ def _parse_review(node: dict) -> Review:
         course_name=node.get("class", ""),
         date=node.get("date", ""),
         thumbs_up=node.get("helpfulRating", 0),
-        thumbs_down=node.get("notHelpfulRating", 0),
+        thumbs_down=0,
         grade=node.get("grade", ""),
         is_online=node.get("isForOnlineClass", False),
         attendance_mandatory=node.get("attendanceMandatory", ""),
