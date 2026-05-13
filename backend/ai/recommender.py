@@ -99,8 +99,11 @@ async def rank_professors(
     for rec in ranked:
         crn = str(rec.get('crn', ''))
         orig = orig_by_crn.get(crn, {})
-        for key in ('rmp_url', 'rmp_tags', 'schedule', 'section_number'):
-            if rec.get(key) is None and orig.get(key) is not None:
+        # Always restore these from scraped data — Claude may invent URLs or drop fields.
+        # rmp_url is forced to None when no match was found (prevents Claude fabricating links).
+        rec['rmp_url'] = orig.get('rmp_url')
+        for key in ('rmp_tags', 'schedule', 'section_number'):
+            if orig.get(key) is not None:
                 rec[key] = orig[key]
 
     return ranked

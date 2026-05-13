@@ -64,7 +64,7 @@ def _format_schedule(section) -> str:
 @router.post('/recommend')
 async def recommend(req: RecommendRequest):
     from scraper.banner import fetch_sections
-    from scraper.rmp import get_professor_by_name
+    from matching.fuzzy import match_professor
     from ai.recommender import rank_professors
 
     # 1. Scrape Banner for sections
@@ -81,7 +81,7 @@ async def recommend(req: RecommendRequest):
     for s in sections:
         name = s.instructor.strip()
         if name and name.upper() not in ('STAFF', 'TBA', '') and name not in seen:
-            prof = await get_professor_by_name(name)
+            prof = await match_professor(name)
             if prof is not None:
                 wta = prof.would_take_again_pct
                 seen[name] = {
