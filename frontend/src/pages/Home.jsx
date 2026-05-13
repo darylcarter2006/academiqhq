@@ -20,7 +20,11 @@ export default function Home() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.detail || `Server error ${res.status}`)
+        const detail = data.detail
+        const msg = Array.isArray(detail)
+          ? detail.map(e => e.msg || JSON.stringify(e)).join('; ')
+          : (typeof detail === 'string' ? detail : `Server error ${res.status}`)
+        throw new Error(msg)
       }
       setResult(await res.json())
     } catch (err) {
