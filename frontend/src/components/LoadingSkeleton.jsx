@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 const STAGES = [
   { delay: 0,     text: 'Searching UNCG Banner for sections…' },
   { delay: 3000,  text: 'Matching instructors to Rate My Professors…' },
-  { delay: 8000,  text: 'Asking Claude to rank and explain each professor…' },
+  { delay: 8000,  text: 'Ranking professors based on your preferences…' },
   { delay: 14000, text: 'Almost done, finalizing results…' },
 ]
 
