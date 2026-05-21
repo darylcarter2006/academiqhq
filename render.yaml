@@ -2,16 +2,16 @@ services:
   - type: web
     name: academiqhq-api
     runtime: python
-    region: ohio          # closest to NC; change to oregon if you prefer west coast
-    plan: starter         # $7/month — no cold starts (free tier sleeps after 15 min)
-    rootDir: backend
+    region: ohio
+    plan: starter
+    rootDir: ./backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.12.0
+        value: "3.12.0"
       - key: ANTHROPIC_API_KEY
-        sync: false       # set manually in Render dashboard — never commit this
+        sync: false
       - key: ALLOWED_ORIGINS
-        sync: false       # e.g. https://academiqhq.com,https://www.academiqhq.com
+        sync: false
