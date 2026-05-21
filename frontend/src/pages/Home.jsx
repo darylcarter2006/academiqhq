@@ -9,10 +9,15 @@ import LoadingSkeleton from '../components/LoadingSkeleton.jsx'
 // e.g. https://academiqhq-api.onrender.com (no trailing slash).
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
+// Diagnostics — always visible in browser DevTools console
+console.log('[AcademiqHQ] build env VITE_API_URL =', JSON.stringify(import.meta.env.VITE_API_URL))
+console.log('[AcademiqHQ] API_BASE =', JSON.stringify(API_BASE) || '(empty string — Vite proxy active)')
+console.log('[AcademiqHQ] PROD =', import.meta.env.PROD)
+
 if (!API_BASE && import.meta.env.PROD) {
   console.error(
-    '[AcademiqHQ] VITE_API_URL is not set. ' +
-    'Add it to your Vercel environment variables and redeploy.'
+    '[AcademiqHQ] VITE_API_URL is not set — all API calls will fail in production. ' +
+    'Set it in Vercel → Project Settings → Environment Variables, then redeploy.'
   )
 }
 
@@ -26,7 +31,7 @@ export default function Home() {
     setError(null)
     setResult(null)
     const url = `${API_BASE}/api/recommend`
-    console.log('[AcademiqHQ] fetching', url)
+    console.log('[AcademiqHQ] POST', url)
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -43,7 +48,16 @@ export default function Home() {
       }
       setResult(await res.json())
     } catch (err) {
-      setError(err.message)
+      // "Failed to fetch" / "NetworkError" almost always means CORS rejection or
+      // the backend is unreachable. Surface the URL so it's obvious in the UI.
+      const isNetworkError =
+        err.message === 'Failed to fetch' || err.message.toLowerCase().includes('networkerror')
+      console.error('[AcademiqHQ] fetch error:', err.message, '| url:', url)
+      setError(
+        isNetworkError
+          ? `Cannot reach the API server (CORS or network error). URL attempted: ${url} — check the browser console for details.`
+          : err.message
+      )
     } finally {
       setLoading(false)
     }
