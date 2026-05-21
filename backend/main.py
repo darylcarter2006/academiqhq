@@ -119,12 +119,16 @@ async def not_found_handler(request: Request, exc):
 # Routes
 # ---------------------------------------------------------------------------
 
-app.include_router(router, prefix="/api")
-
-
-@app.get("/api/health", include_in_schema=False)
+# Health endpoint must be registered before the API router so it is never
+# shadowed by router-level middleware. Exempted from rate limiting so
+# UptimeRobot / Render health checks never get a 429 that looks like 405.
+@app.api_route("/api/health", methods=["GET", "HEAD"], include_in_schema=False)
+@limiter.exempt
 async def health():
-    return {"status": "ok"}
+    return JSONResponse({"status": "ok"})
+
+
+app.include_router(router, prefix="/api")
 
 
 # ---------------------------------------------------------------------------
