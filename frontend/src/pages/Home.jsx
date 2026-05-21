@@ -35,8 +35,8 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen px-4 pt-14 pb-24">
-      <div className="max-w-2xl mx-auto flex flex-col gap-7">
+    <div className="min-h-screen px-4 pt-8 sm:pt-14 pb-16 sm:pb-24">
+      <div className="max-w-2xl mx-auto flex flex-col gap-6 sm:gap-7">
 
         {/* Header */}
         <header className="text-center mb-4">
@@ -71,7 +71,7 @@ export default function Home() {
         {result && !loading && (
           <section className="flex flex-col gap-5">
             <div>
-              <h2 className="font-serif text-2xl font-normal text-parchment">
+              <h2 className="font-serif text-xl sm:text-2xl font-normal text-parchment text-balance">
                 {result.professors_found} professor{result.professors_found !== 1 ? 's' : ''} for{' '}
                 <span className="text-gold">{result.course_code}</span>
                 {result.term ? ` · ${result.term}` : ''}

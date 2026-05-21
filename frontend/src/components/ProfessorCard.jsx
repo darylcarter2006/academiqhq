@@ -11,7 +11,7 @@ function Stars({ rating }) {
   if (rating == null) return <span className="text-parchment-muted text-xs">No rating</span>
   const filled = Math.round(rating)
   return (
-    <span className="flex items-center gap-1.5" title={`${rating}/5`}>
+    <span className="flex items-center gap-1.5 flex-none" title={`${rating}/5`}>
       <span className="flex" style={{ letterSpacing: 2 }}>
         {[1,2,3,4,5].map(i => (
           <span key={i} className={i <= filled ? 'text-gold' : 'text-navy-400'}>★</span>
@@ -24,9 +24,9 @@ function Stars({ rating }) {
 
 function Stat({ label, value, className = '' }) {
   return (
-    <div className="flex flex-col items-center bg-navy-600 rounded-lg px-3.5 py-2 min-w-[72px]">
+    <div className="flex flex-col items-center bg-navy-600 rounded-lg px-3 py-2 min-w-[68px]">
       <span className={`text-base font-semibold ${className}`}>{value ?? '—'}</span>
-      <span className="text-[10px] text-parchment-muted mt-0.5 text-center">{label}</span>
+      <span className="text-[10px] text-parchment-muted mt-0.5 text-center leading-tight">{label}</span>
     </div>
   )
 }
@@ -38,47 +38,46 @@ export default function ProfessorCard({ rec, index }) {
   const tags = rec.rmp_tags?.filter(Boolean) ?? []
 
   return (
-    <article className="card p-6 flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-start gap-3 flex-wrap">
+    <article className="card p-4 sm:p-6 flex flex-col gap-4">
+
+      {/* Header row: rank badge + name/section + match score pill */}
+      <div className="flex items-start gap-3">
         {/* Rank badge */}
         <div className="flex-none w-9 h-9 rounded-full bg-gold flex items-center justify-center
-                        text-navy-900 font-bold text-sm mt-0.5">
+                        text-navy-900 font-bold text-sm mt-0.5 shrink-0">
           {index + 1}
         </div>
 
-        {/* Name + section info */}
+        {/* Name + section info — min-w-0 allows text to wrap instead of overflow */}
         <div className="flex-1 min-w-0">
-          <h3 className="font-serif text-xl text-parchment leading-snug">
+          <h3 className="font-serif text-lg sm:text-xl text-parchment leading-snug break-words">
             {rec.instructor_name}
           </h3>
-          <p className="text-xs text-parchment-muted mt-1">
+          <p className="text-xs text-parchment-muted mt-1 break-words">
             Section {rec.section_number}
             {rec.crn ? <> &middot; CRN {rec.crn}</> : null}
             {rec.schedule ? <> &middot; {rec.schedule}</> : null}
           </p>
         </div>
 
-        {/* Match score badge */}
-        <span className={`badge ${fit.pill} whitespace-nowrap flex-none`}>
+        {/* Match score pill — shrinks to right side */}
+        <span className={`badge ${fit.pill} whitespace-nowrap flex-none text-[11px] sm:text-xs`}>
           {rec.match_score}
         </span>
       </div>
 
-      {/* RMP stats */}
-      <div className="flex items-center gap-3 flex-wrap">
+      {/* RMP stats — all items in a single flex-wrap row so they reflow on narrow screens */}
+      <div className="flex items-center gap-2 flex-wrap">
         <Stars rating={rec.rmp_rating} />
-        <div className="flex gap-2">
-          {rec.rmp_difficulty != null && (
-            <Stat label="Difficulty" value={rec.rmp_difficulty.toFixed(1)} className="text-amber-400" />
-          )}
-          {rec.rmp_would_take_again != null && (
-            <Stat label="Would Retake" value={pct(rec.rmp_would_take_again)} className="text-emerald-400" />
-          )}
-          {rec.rmp_num_ratings > 0 && (
-            <Stat label="Ratings" value={rec.rmp_num_ratings} className="text-parchment-dim" />
-          )}
-        </div>
+        {rec.rmp_difficulty != null && (
+          <Stat label="Difficulty" value={rec.rmp_difficulty.toFixed(1)} className="text-amber-400" />
+        )}
+        {rec.rmp_would_take_again != null && (
+          <Stat label="Would Retake" value={pct(rec.rmp_would_take_again)} className="text-emerald-400" />
+        )}
+        {rec.rmp_num_ratings > 0 && (
+          <Stat label="Ratings" value={rec.rmp_num_ratings} className="text-parchment-dim" />
+        )}
       </div>
 
       {/* Tags */}
@@ -104,7 +103,8 @@ export default function ProfessorCard({ rec, index }) {
           {rec.explanation.length > 200 && (
             <button
               onClick={() => setExpanded(e => !e)}
-              className="text-xs text-gold hover:text-gold-light mt-1.5 transition-colors duration-150"
+              className="text-xs text-gold hover:text-gold-light mt-1.5 transition-colors
+                         duration-150 min-h-[36px] flex items-center"
             >
               {expanded ? 'Show less ▲' : 'Read more ▼'}
             </button>
@@ -119,7 +119,7 @@ export default function ProfessorCard({ rec, index }) {
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-gold/70 hover:text-gold transition-colors duration-150
-                     inline-flex items-center gap-1 mt-0.5 w-fit"
+                     inline-flex items-center gap-1 mt-0.5 w-fit min-h-[36px]"
         >
           View on Rate My Professors ↗
         </a>
