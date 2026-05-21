@@ -1,20 +1,56 @@
 import re
-from fastapi import APIRouter, HTTPException
+import logging
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
+from limiter import limiter
+
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# ---------------------------------------------------------------------------
+# Input validation patterns
+# ---------------------------------------------------------------------------
+
 COURSE_RE = re.compile(r'^([A-Z]{2,4})\s?(\d{3}[A-Z]?)$')
+TERM_RE = re.compile(r'^\d{6}$')
 HTML_TAG_RE = re.compile(r'<[^>]+>')
 CONTROL_CHAR_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
 
+# Prompt injection patterns — case-insensitive
+_INJECTION_RE = re.compile(
+    r'ignore\s+(previous|above|all)\s+(instructions?|prompts?|context)'
+    r'|you\s+are\s+now\s+a'
+    r'|forget\s+(everything|all|previous|prior)'
+    r'|new\s+(instruction|directive|role|persona)'
+    r'|system\s*prompt'
+    r'|jailbreak'
+    r'|\bDAN\b'
+    r'|pretend\s+you\s+are'
+    r'|act\s+as\s+(if\s+you\s+are|a\s+)'
+    r'|disregard\s+(all|previous|prior)',
+    re.IGNORECASE,
+)
 
-TERM_RE = re.compile(r'^\d{6}$')
+
+def _scrub_injection(text: str) -> str:
+    """Remove prompt injection attempts. Raises ValueError if pattern is unambiguous."""
+    if _INJECTION_RE.search(text):
+        raise ValueError(
+            'Your preferences contain text that looks like an instruction override. '
+            'Please describe what you are looking for in a professor.'
+        )
+    return text
+
+
+# ---------------------------------------------------------------------------
+# Request model
+# ---------------------------------------------------------------------------
 
 class RecommendRequest(BaseModel):
     course_code: str = Field(..., min_length=3, max_length=20)
     preferences: str = Field(..., min_length=5, max_length=500)
-    term: str | None = Field(None, description="Optional Banner term code, e.g. '202608' for Fall 2026")
+    term: str | None = Field(None, description="Optional Banner term code, e.g. '202608'")
 
     @field_validator('course_code')
     @classmethod
@@ -22,9 +58,7 @@ class RecommendRequest(BaseModel):
         v = v.strip().upper()
         m = COURSE_RE.match(v)
         if not m:
-            raise ValueError(
-                'Invalid course code — use the format "CSC 330" or "MAT191".'
-            )
+            raise ValueError('Invalid course code — use the format "CSC 330" or "MAT191".')
         return f"{m.group(1)} {m.group(2)}"
 
     @field_validator('term')
@@ -41,15 +75,19 @@ class RecommendRequest(BaseModel):
     @classmethod
     def sanitize_preferences(cls, v: str) -> str:
         v = v.strip()
-        v = HTML_TAG_RE.sub('', v)
-        v = CONTROL_CHAR_RE.sub('', v)
+        v = HTML_TAG_RE.sub('', v)       # strip HTML tags
+        v = CONTROL_CHAR_RE.sub('', v)   # strip control characters
         if len(v) < 5:
             raise ValueError('Please describe what you are looking for (at least 5 characters).')
+        _scrub_injection(v)
         return v
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
 def _format_schedule(section) -> str:
-    """Build a readable schedule string from a Section's meetings list."""
     if not section.meetings:
         return 'TBA'
     parts = []
@@ -61,11 +99,18 @@ def _format_schedule(section) -> str:
     return ' / '.join(parts) if parts else 'TBA'
 
 
+# ---------------------------------------------------------------------------
+# Endpoint
+# ---------------------------------------------------------------------------
+
 @router.post('/recommend')
-async def recommend(req: RecommendRequest):
+@limiter.limit("5/minute")
+async def recommend(request: Request, req: RecommendRequest):
     from scraper.banner import fetch_sections
     from matching.fuzzy import match_professor
     from ai.recommender import rank_professors
+
+    logger.info("recommend request: course=%s term=%s", req.course_code, req.term)
 
     # 1. Scrape Banner for sections
     sections = await fetch_sections(req.course_code, term_code=req.term)
@@ -76,12 +121,17 @@ async def recommend(req: RecommendRequest):
                    'Check the course code or try a different term.',
         )
 
-    # 2. Fetch RMP data for each unique instructor (deduplicated)
+    # 2. Fetch RMP data for each unique instructor
     seen: dict[str, dict] = {}
     for s in sections:
         name = s.instructor.strip()
         if name and name.upper() not in ('STAFF', 'TBA', '') and name not in seen:
-            prof = await match_professor(name)
+            try:
+                prof = await match_professor(name)
+            except Exception:
+                logger.warning("RMP match failed for %r", name, exc_info=True)
+                prof = None
+
             if prof is not None:
                 wta = prof.would_take_again_pct
                 has_ratings = prof.num_ratings > 0
@@ -119,7 +169,8 @@ async def recommend(req: RecommendRequest):
     if not professors:
         raise HTTPException(
             status_code=404,
-            detail='Sections were found but no assigned instructors. Try again closer to registration.',
+            detail='Sections were found but no instructors are assigned yet. '
+                   'Try again closer to registration.',
         )
 
     # 4. Rank with Claude
