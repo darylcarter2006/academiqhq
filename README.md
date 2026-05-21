@@ -1,4 +1,4 @@
-# UNCG Professor Recommender
+# AcademiqHQ
 
 > Find the best professor for your UNCG course — powered by live Banner enrollment data, Rate My Professors ratings, and Claude AI.
 
