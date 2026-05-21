@@ -41,7 +41,7 @@ export default function Home() {
         {/* Header */}
         <header className="text-center mb-4">
           <p className="text-xs font-semibold text-gold uppercase tracking-[0.18em] mb-3">
-            UNCG Professor Recommender
+            AcademiqHQ
           </p>
           <h1 className="font-serif text-[clamp(2rem,6vw,3.25rem)] font-normal text-parchment
                           leading-tight text-balance mb-4">
