@@ -1,14 +1,12 @@
 """
-UNCG Professor Recommender - Backend
-=====================================
-
-Main FastAPI application. Run with:
-    uvicorn backend.main:app --reload --port 8000
+Academiq — FastAPI backend entry point.
 
 Environment variables:
-    ANTHROPIC_API_KEY   - Required. Your Claude API key.
-    CACHE_TTL           - Optional. Cache TTL in seconds (default: 86400 = 24h).
-    DB_PATH             - Optional. Path to SQLite cache file.
+    ANTHROPIC_API_KEY   Required. Claude API key.
+    ALLOWED_ORIGINS     Comma-separated list of allowed CORS origins.
+                        Defaults to localhost only.
+                        Production: "https://academiqhq.com,https://www.academiqhq.com"
+    PORT                HTTP port (default 8000; Railway injects this automatically).
 """
 
 import logging
@@ -16,9 +14,13 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 
+from limiter import limiter
 from routes.recommend import router
 
 # ---------------------------------------------------------------------------
@@ -30,46 +32,99 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     datefmt="%H:%M:%S",
 )
-
-# Quiet down httpx logging
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# App setup
+# CORS origins — never wildcard in production
+# ---------------------------------------------------------------------------
+
+_raw_origins = os.environ.get(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173",
+)
+ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
+# ---------------------------------------------------------------------------
+# App
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="UNCG Professor Recommender",
-    description=(
-        "AI-powered professor recommendations for UNCG students. "
-        "Enter a course code and describe what you want in a professor. "
-        "Get ranked recommendations with explanations based on Rate My Professors data."
-    ),
-    version="0.1.0",
+    title="Academiq",
+    version="1.0.0",
+    docs_url=None,   # disable in production
+    redoc_url=None,
+    openapi_url=None,
 )
 
-# CORS: allow frontend origins
-# In production, lock this down to your Vercel domain
+# Rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",       # Local React dev server
-        "http://localhost:5173",       # Vite dev server
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-        # Add your Vercel domain here when deployed:
-        # "https://your-app.vercel.app",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["POST", "GET", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 
-# Mount routes
+# ---------------------------------------------------------------------------
+# Security headers + body size limit
+# ---------------------------------------------------------------------------
+
+MAX_BODY_BYTES = 8_192  # 8 KB — requests larger than this are rejected
+
+
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    # Reject oversized request bodies
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_BODY_BYTES:
+        return JSONResponse(status_code=413, content={"detail": "Request body too large."})
+
+    response = await call_next(request)
+
+    # Security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Custom error handlers — never expose stack traces
+# ---------------------------------------------------------------------------
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.error("Unhandled exception on %s %s: %r", request.method, request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An unexpected error occurred. Please try again."},
+    )
+
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc):
+    return JSONResponse(status_code=404, content={"detail": "Not found."})
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
 app.include_router(router, prefix="/api")
+
+
+@app.get("/api/health", include_in_schema=False)
+async def health():
+    return {"status": "ok"}
 
 
 # ---------------------------------------------------------------------------
@@ -78,29 +133,9 @@ app.include_router(router, prefix="/api")
 
 @app.on_event("startup")
 async def startup():
-    """Initialize cache and validate configuration on startup."""
-    # Check for API key
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        logger.warning(
-            "ANTHROPIC_API_KEY not set. The /recommend endpoint will fail. "
-            "Other endpoints (professors, health) will still work."
-        )
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        logger.warning("ANTHROPIC_API_KEY not set — /api/recommend will fail")
     else:
         logger.info("Claude API key configured")
-
-    logger.info("UNCG Professor Recommender backend started")
-
-
-# ---------------------------------------------------------------------------
-# Root
-# ---------------------------------------------------------------------------
-
-@app.get("/")
-async def root():
-    return {
-        "app": "UNCG Professor Recommender",
-        "version": "0.1.0",
-        "docs": "/docs",
-        "health": "/api/health",
-    }
+    logger.info("Allowed CORS origins: %s", ALLOWED_ORIGINS)
+    logger.info("Academiq backend started")
