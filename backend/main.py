@@ -2,22 +2,21 @@
 UNCG Professor Recommender - Backend
 =====================================
 
-Main FastAPI application. Run with:
-    uvicorn backend.main:app --reload --port 8000
-
 Environment variables:
-    ANTHROPIC_API_KEY   - Required. Your Claude API key.
-    CACHE_TTL           - Optional. Cache TTL in seconds (default: 86400 = 24h).
-    DB_PATH             - Optional. Path to SQLite cache file.
+    ANTHROPIC_API_KEY   - Required.
+    PORT                - HTTP port (default 8000, Railway injects this automatically).
 """
 
 import logging
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from routes.recommend import router
 
@@ -30,46 +29,58 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     datefmt="%H:%M:%S",
 )
-
-# Quiet down httpx logging
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# App setup
+# App
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="UNCG Professor Recommender",
-    description=(
-        "AI-powered professor recommendations for UNCG students. "
-        "Enter a course code and describe what you want in a professor. "
-        "Get ranked recommendations with explanations based on Rate My Professors data."
-    ),
-    version="0.1.0",
+    title="Academiq",
+    version="1.0.0",
+    # Disable docs in production to keep the surface clean
+    docs_url="/api/docs",
+    redoc_url=None,
 )
 
-# CORS: allow frontend origins
-# In production, lock this down to your Vercel domain
+# CORS — only needed for local dev (in prod the frontend is same-origin)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",       # Local React dev server
-        "http://localhost:5173",       # Vite dev server
-        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://localhost:4173",
         "http://127.0.0.1:5173",
-        # Add your Vercel domain here when deployed:
-        # "https://your-app.vercel.app",
+        "https://academiqhq.com",
+        "https://www.academiqhq.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Mount routes
+# API routes
 app.include_router(router, prefix="/api")
+
+# ---------------------------------------------------------------------------
+# Serve React frontend (production build)
+# ---------------------------------------------------------------------------
+
+FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+
+if FRONTEND_DIST.exists():
+    # Serve static assets (JS, CSS, images) from /assets and root
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        """Catch-all: serve index.html for any non-API path (SPA routing)."""
+        index = FRONTEND_DIST / "index.html"
+        return FileResponse(str(index))
+else:
+    logger.warning("Frontend dist not found — run 'npm run build' in frontend/")
 
 
 # ---------------------------------------------------------------------------
@@ -78,29 +89,9 @@ app.include_router(router, prefix="/api")
 
 @app.on_event("startup")
 async def startup():
-    """Initialize cache and validate configuration on startup."""
-    # Check for API key
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        logger.warning(
-            "ANTHROPIC_API_KEY not set. The /recommend endpoint will fail. "
-            "Other endpoints (professors, health) will still work."
-        )
+        logger.warning("ANTHROPIC_API_KEY not set — /api/recommend will fail")
     else:
         logger.info("Claude API key configured")
-
-    logger.info("UNCG Professor Recommender backend started")
-
-
-# ---------------------------------------------------------------------------
-# Root
-# ---------------------------------------------------------------------------
-
-@app.get("/")
-async def root():
-    return {
-        "app": "UNCG Professor Recommender",
-        "version": "0.1.0",
-        "docs": "/docs",
-        "health": "/api/health",
-    }
+    logger.info("Academiq backend started (frontend dist: %s)", "found" if FRONTEND_DIST.exists() else "missing")
