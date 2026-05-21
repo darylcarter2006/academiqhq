@@ -77,7 +77,7 @@ export default function Home() {
             Find Your Perfect Professor
           </h1>
           <p className="text-sm text-parchment-muted leading-relaxed max-w-md mx-auto">
-            Enter a course, tell us what matters, and we'll rank every professor for you.
+            Enter a course, tell us what matters, and we'll rank every professor using real Rate My Professors data.
           </p>
         </header>
 
