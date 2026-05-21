@@ -39,8 +39,9 @@ def _get_client() -> anthropic.AsyncAnthropic:
     if _client is None:
         api_key = os.environ.get('ANTHROPIC_API_KEY')
         if not api_key:
-            raise RuntimeError('ANTHROPIC_API_KEY is not set.')
-        _client = anthropic.AsyncAnthropic(api_key=api_key)
+            raise RuntimeError('ANTHROPIC_API_KEY is not set in environment.')
+        logger.info("Anthropic client init (key prefix: %s...)", api_key[:12])
+        _client = anthropic.AsyncAnthropic(api_key=api_key, timeout=90.0)
     return _client
 
 
@@ -134,6 +135,12 @@ def _validate_output(ranked: Any, expected_count: int) -> list[dict]:
 # Main entry point
 # ---------------------------------------------------------------------------
 
+def _apply_fallback(professors: list[dict]) -> None:
+    for p in professors:
+        p.setdefault('match_score', 'Decent fit')
+        p.setdefault('explanation', 'AI ranking is temporarily unavailable.')
+
+
 async def rank_professors(
     professors: list[dict],
     preferences: str,
@@ -143,10 +150,6 @@ async def rank_professors(
     Call Claude to rank professors and return the annotated list.
     Falls back to original order on any error.
     """
-    client = _get_client()
-    prompt = _build_prompt(professors, preferences, course_code)
-
-    # Log the call with a hash of the preferences (never log raw user input)
     pref_hash = hashlib.sha256(preferences.encode()).hexdigest()[:12]
     t0 = time.monotonic()
     logger.info(
@@ -155,6 +158,9 @@ async def rank_professors(
     )
 
     try:
+        client = _get_client()
+        prompt = _build_prompt(professors, preferences, course_code)
+
         message = await client.messages.create(
             model='claude-sonnet-4-6',
             max_tokens=8192,
@@ -162,7 +168,13 @@ async def rank_professors(
             messages=[{'role': 'user', 'content': prompt}],
         )
         elapsed = time.monotonic() - t0
-        logger.info("Claude responded in %.1fs", elapsed)
+        logger.info(
+            "Claude responded in %.1fs stop_reason=%s input_tokens=%d output_tokens=%d",
+            elapsed,
+            message.stop_reason,
+            message.usage.input_tokens,
+            message.usage.output_tokens,
+        )
 
         raw = message.content[0].text.strip()
 
@@ -174,12 +186,58 @@ async def rank_professors(
         ranked = json.loads(raw)
         ranked = _validate_output(ranked, len(professors))
 
+    except anthropic.AuthenticationError as exc:
+        elapsed = time.monotonic() - t0
+        logger.error(
+            "Claude auth error after %.1fs — check ANTHROPIC_API_KEY on Render: status=%d body=%r",
+            elapsed, exc.status_code, exc.body,
+        )
+        _apply_fallback(professors)
+        return professors
+
+    except anthropic.RateLimitError as exc:
+        elapsed = time.monotonic() - t0
+        logger.error("Claude rate limit after %.1fs: status=%d body=%r", elapsed, exc.status_code, exc.body)
+        _apply_fallback(professors)
+        return professors
+
+    except anthropic.APITimeoutError:
+        elapsed = time.monotonic() - t0
+        logger.error("Claude timed out after %.1fs (limit=90s)", elapsed)
+        _apply_fallback(professors)
+        return professors
+
+    except anthropic.APIConnectionError as exc:
+        elapsed = time.monotonic() - t0
+        logger.error("Claude connection error after %.1fs: %r", elapsed, exc)
+        _apply_fallback(professors)
+        return professors
+
+    except anthropic.APIStatusError as exc:
+        elapsed = time.monotonic() - t0
+        logger.error(
+            "Claude API error after %.1fs: status=%d body=%r",
+            elapsed, exc.status_code, exc.body,
+        )
+        _apply_fallback(professors)
+        return professors
+
+    except json.JSONDecodeError as exc:
+        elapsed = time.monotonic() - t0
+        logger.error("Claude output is not valid JSON after %.1fs: %r", elapsed, exc)
+        _apply_fallback(professors)
+        return professors
+
+    except ValueError as exc:
+        elapsed = time.monotonic() - t0
+        logger.error("Claude output validation failed after %.1fs: %r", elapsed, exc)
+        _apply_fallback(professors)
+        return professors
+
     except Exception as exc:
         elapsed = time.monotonic() - t0
-        logger.error("Claude ranking failed after %.1fs: %r", elapsed, exc)
-        for p in professors:
-            p.setdefault('match_score', 'Decent fit')
-            p.setdefault('explanation', 'AI ranking is temporarily unavailable.')
+        logger.error("Claude ranking unexpected error after %.1fs: %r", elapsed, exc, exc_info=True)
+        _apply_fallback(professors)
         return professors
 
     # Always restore scraped fields — Claude must not fabricate or alter these

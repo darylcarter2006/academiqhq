@@ -133,9 +133,10 @@ async def health():
 
 @app.on_event("startup")
 async def startup():
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        logger.warning("ANTHROPIC_API_KEY not set — /api/recommend will fail")
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        logger.warning("ANTHROPIC_API_KEY not set — Claude ranking will fail on every request")
     else:
-        logger.info("Claude API key configured")
+        logger.info("ANTHROPIC_API_KEY present (prefix: %s...)", api_key[:12])
     logger.info("Allowed CORS origins: %s", ALLOWED_ORIGINS)
     logger.info("Academiq backend started")
