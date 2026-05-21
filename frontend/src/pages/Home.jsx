@@ -3,19 +3,32 @@ import SearchForm from '../components/SearchForm.jsx'
 import ProfessorCard from '../components/ProfessorCard.jsx'
 import LoadingSkeleton from '../components/LoadingSkeleton.jsx'
 
+// Resolved once at module load from the Vite build-time env injection.
+// In dev: falls back to '' so Vite's proxy handles /api/* → localhost:8000.
+// In production: VITE_API_URL must be set on Vercel before building,
+// e.g. https://academiqhq-api.onrender.com (no trailing slash).
+const API_BASE = import.meta.env.VITE_API_URL || ''
+
+if (!API_BASE && import.meta.env.PROD) {
+  console.error(
+    '[AcademiqHQ] VITE_API_URL is not set. ' +
+    'Add it to your Vercel environment variables and redeploy.'
+  )
+}
+
 export default function Home() {
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState(null)
   const [result, setResult] = React.useState(null)
 
-  const API_BASE = import.meta.env.VITE_API_URL ?? ''
-
   async function handleSearch({ course, prefs, term }) {
     setLoading(true)
     setError(null)
     setResult(null)
+    const url = `${API_BASE}/api/recommend`
+    console.log('[AcademiqHQ] fetching', url)
     try {
-      const res = await fetch(`${API_BASE}/api/recommend`, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ course_code: course, preferences: prefs, term }),
