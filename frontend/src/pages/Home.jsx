@@ -74,11 +74,10 @@ export default function Home() {
           </p>
           <h1 className="font-serif text-[clamp(2rem,6vw,3.25rem)] font-normal text-parchment
                           leading-tight text-balance mb-4">
-            Find your perfect professor
+            Find Your Perfect Professor
           </h1>
           <p className="text-sm text-parchment-muted leading-relaxed max-w-md mx-auto">
-            Enter a course code and describe what matters to you. We'll scrape Banner,
-            check Rate My Professors, and let Claude rank the options.
+            Enter a course, tell us what matters, and we'll rank every professor for you.
           </p>
         </header>
 
@@ -109,7 +108,7 @@ export default function Home() {
                 <p className="text-sm text-parchment-muted leading-relaxed mt-2">{result.summary}</p>
               )}
               <p className="text-xs text-parchment-muted/60 mt-1">
-                {result.sections_found} section{result.sections_found !== 1 ? 's' : ''} scraped from Banner
+                {result.sections_found} section{result.sections_found !== 1 ? 's' : ''} found
               </p>
             </div>
 
