@@ -8,12 +8,14 @@ export default function Home() {
   const [error, setError] = React.useState(null)
   const [result, setResult] = React.useState(null)
 
+  const API_BASE = import.meta.env.VITE_API_URL ?? ''
+
   async function handleSearch({ course, prefs, term }) {
     setLoading(true)
     setError(null)
     setResult(null)
     try {
-      const res = await fetch('/api/recommend', {
+      const res = await fetch(`${API_BASE}/api/recommend`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ course_code: course, preferences: prefs, term }),
