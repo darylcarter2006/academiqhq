@@ -1,4 +1,5 @@
 import React from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import Home from './pages/Home.jsx'
 
 class ErrorBoundary extends React.Component {
@@ -43,6 +44,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Home />
+      <Analytics />
     </ErrorBoundary>
   )
 }
