@@ -107,7 +107,7 @@ export default function Home() {
 
       {/* ── Page content ─────────────────────────────────────── */}
       <div className="relative z-10 px-4 pt-12 sm:pt-20 pb-20 sm:pb-32">
-        <div className="max-w-2xl mx-auto flex flex-col gap-8 sm:gap-10">
+        <div className="max-w-3xl mx-auto flex flex-col gap-8 sm:gap-10">
 
           {/* ── Hero ─────────────────────────────────────────── */}
           <header className="text-center">
@@ -130,17 +130,15 @@ export default function Home() {
 
             {/* Main heading */}
             <h1
-              className="hero-fade hero-fade-2 font-serif text-balance leading-none mb-5"
-              style={{ fontSize: 'clamp(2.4rem, 7vw, 3.8rem)' }}
+              className="hero-fade hero-fade-2 font-serif leading-tight mb-5"
+              style={{ fontSize: 'clamp(2rem, 5.5vw, 3rem)' }}
             >
-              <span className="block text-parchment">Find Your Perfect</span>
-              <span className="block italic gradient-text" style={{ marginTop: '0.04em' }}>
-                Professor.
-              </span>
+              <span className="text-parchment">Find Your Perfect </span>
+              <span className="italic gradient-text">Professor.</span>
             </h1>
 
             {/* Subtitle */}
-            <p className="hero-fade hero-fade-3 text-sm text-parchment-muted leading-relaxed max-w-sm mx-auto">
+            <p className="hero-fade hero-fade-3 text-sm leading-relaxed max-w-sm mx-auto" style={{ color: '#c8b898' }}>
               Enter a course, tell us what matters, and we'll rank every professor
               using real Rate My Professors data.
             </p>
