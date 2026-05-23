@@ -31,13 +31,13 @@ export default function SearchForm({ onSubmit, loading }) {
   const disabled = loading || !course.trim() || !prefs.trim()
 
   return (
-    <form onSubmit={handleSubmit} className="glass-panel p-5 sm:p-7 flex flex-col gap-5">
+    <form onSubmit={handleSubmit} className="glass-panel p-6 sm:p-10 flex flex-col gap-7">
 
       {/* ── Input row ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:flex sm:flex-wrap sm:gap-5">
 
         {/* Course code */}
-        <div className="sm:flex-none sm:w-36">
+        <div className="sm:flex-none sm:w-44">
           <label className="field-label">Course Code</label>
           <input
             value={course}
@@ -53,7 +53,7 @@ export default function SearchForm({ onSubmit, loading }) {
         </div>
 
         {/* Term */}
-        <div className="sm:flex-none sm:w-36">
+        <div className="sm:flex-none sm:w-44">
           <label className="field-label">Term</label>
           <div className="relative">
             <select
@@ -71,7 +71,7 @@ export default function SearchForm({ onSubmit, loading }) {
             </select>
             {/* Custom chevron */}
             <svg
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4"
               fill="none" viewBox="0 0 24 24" stroke="currentColor"
               style={{ color: 'var(--gold)', opacity: 0.6 }}
             >
@@ -81,23 +81,23 @@ export default function SearchForm({ onSubmit, loading }) {
         </div>
 
         {/* Preferences */}
-        <div className="col-span-2 sm:flex-1 sm:min-w-48">
+        <div className="col-span-2 sm:flex-1 sm:min-w-60">
           <label className="field-label">What you're looking for</label>
           <textarea
             value={prefs}
             onChange={e => setPrefs(e.target.value)}
             placeholder="e.g. I want someone who grades fairly, gives clear feedback, and doesn't cold call…"
-            rows={3}
+            rows={4}
             maxLength={500}
             className="input-field resize-none"
             disabled={loading}
-            style={{ lineHeight: 1.55 }}
+            style={{ lineHeight: 1.65 }}
           />
         </div>
       </div>
 
       {/* ── Example pills ─────────────────────────────────────── */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2.5 flex-wrap">
         <span className="text-[0.65rem] font-semibold tracking-widest uppercase text-parchment-muted/60">
           Try:
         </span>
@@ -107,8 +107,8 @@ export default function SearchForm({ onSubmit, loading }) {
             type="button"
             onClick={() => fillExample(ex)}
             disabled={loading}
-            className="text-[0.7rem] font-mono font-medium tracking-wider
-                       px-3.5 py-1.5 rounded-full min-h-[34px]
+            className="text-[0.72rem] font-mono font-medium tracking-wider
+                       px-4 py-2 rounded-full min-h-[36px]
                        transition-all duration-200 disabled:opacity-30"
             style={{
               background: 'rgba(14,29,62,0.7)',
@@ -140,7 +140,7 @@ export default function SearchForm({ onSubmit, loading }) {
       <button
         type="submit"
         disabled={disabled}
-        className={`w-full sm:w-auto sm:self-end px-8 py-3 min-h-[46px] rounded-xl
+        className={`w-full sm:w-auto sm:self-end px-10 py-3.5 min-h-[52px] rounded-xl
                     text-sm font-bold tracking-widest uppercase transition-all duration-200
                     ${disabled
                       ? 'cursor-not-allowed opacity-35'

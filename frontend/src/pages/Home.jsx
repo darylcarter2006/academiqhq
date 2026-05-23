@@ -106,22 +106,22 @@ export default function Home() {
       </div>
 
       {/* ── Page content ─────────────────────────────────────── */}
-      <div className="relative z-10 px-4 pt-12 sm:pt-20 pb-20 sm:pb-32">
-        <div className="max-w-3xl mx-auto flex flex-col gap-8 sm:gap-10">
+      <div className="relative z-10 px-6 sm:px-10 pt-16 sm:pt-28 pb-24 sm:pb-40">
+        <div className="max-w-5xl mx-auto flex flex-col gap-10 sm:gap-14">
 
           {/* ── Hero ─────────────────────────────────────────── */}
           <header className="text-center">
 
             {/* Logo + wordmark */}
-            <div className="hero-fade inline-flex items-center gap-2.5 mb-6">
+            <div className="hero-fade inline-flex items-center gap-3 mb-8">
               <img
                 src="/favicon.png"
                 alt="AcademiqHQ"
-                className="w-7 h-7 object-contain opacity-90"
+                className="w-8 h-8 object-contain opacity-90"
                 aria-hidden
               />
               <span
-                className="text-[0.65rem] font-bold tracking-[0.22em] uppercase"
+                className="text-[0.7rem] font-bold tracking-[0.22em] uppercase"
                 style={{ color: 'var(--gold)' }}
               >
                 AcademiqHQ
@@ -130,21 +130,21 @@ export default function Home() {
 
             {/* Main heading */}
             <h1
-              className="hero-fade hero-fade-2 font-serif leading-tight mb-5"
-              style={{ fontSize: 'clamp(2rem, 5.5vw, 3rem)' }}
+              className="hero-fade hero-fade-2 font-serif leading-tight mb-6"
+              style={{ fontSize: 'clamp(2.6rem, 6vw, 4.2rem)' }}
             >
               <span className="text-parchment">Find Your Perfect </span>
               <span className="italic gradient-text">Professor.</span>
             </h1>
 
             {/* Subtitle */}
-            <p className="hero-fade hero-fade-3 text-sm leading-relaxed max-w-sm mx-auto" style={{ color: '#c8b898' }}>
+            <p className="hero-fade hero-fade-3 leading-relaxed max-w-lg mx-auto" style={{ fontSize: '1.05rem', color: '#c8b898' }}>
               Enter a course, tell us what matters, and we'll rank every professor
               using real Rate My Professors data.
             </p>
 
             {/* Decorative rule */}
-            <div className="hero-fade hero-fade-4 gold-rule max-w-[180px] mx-auto mt-6" />
+            <div className="hero-fade hero-fade-4 gold-rule max-w-[220px] mx-auto mt-8" />
           </header>
 
           {/* ── Search form ──────────────────────────────────── */}
