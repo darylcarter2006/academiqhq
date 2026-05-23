@@ -2,7 +2,7 @@ import React from 'react'
 
 const EXAMPLES = [
   { label: 'CSC 330', course: 'CSC 330', prefs: 'Easy grader, engaging lectures, not too much homework' },
-  { label: 'MAT 191', course: 'MAT 191', prefs: 'Patient with students who struggle, good at explaining concepts clearly' },
+  { label: 'MAT 196', course: 'MAT 196', prefs: 'Patient with students who struggle, good at explaining concepts clearly' },
   { label: 'ENG 101', course: 'ENG 101', prefs: 'Flexible with deadlines, helpful feedback on essays' },
 ]
 

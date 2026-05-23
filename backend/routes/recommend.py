@@ -138,8 +138,8 @@ async def recommend(request: Request, req: RecommendRequest):
     if not sections:
         raise HTTPException(
             status_code=404,
-            detail=f'No sections found for {req.course_code}. '
-                   'Check the course code or try a different term.',
+            detail=f'{req.course_code} does not appear to be a valid UNCG course number, '
+                   'or no sections are offered this term. Double-check the course code and try again.',
         )
 
     # 2. Fetch RMP data for each unique instructor
