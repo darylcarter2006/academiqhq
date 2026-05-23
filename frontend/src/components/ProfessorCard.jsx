@@ -31,6 +31,14 @@ const MATCH_CONFIG = {
   },
 }
 
+const NO_DATA_MATCH = {
+  color: '#7a8099',
+  bg: 'rgba(20,24,48,0.55)',
+  border: 'rgba(122,128,153,0.28)',
+  glow: 'rgba(122,128,153,0.08)',
+  label: 'No RMP Data',
+}
+
 /* ── Star rating ───────────────────────────────────────────────── */
 function StarRating({ rating }) {
   if (rating == null) {
@@ -121,7 +129,10 @@ function Avatar({ name, matchColor }) {
 export default function ProfessorCard({ rec, index }) {
   const [expanded, setExpanded] = useState(false)
 
-  const match = MATCH_CONFIG[rec.match_score] || MATCH_CONFIG['Decent fit']
+  const hasRmpData = rec.rmp_rating != null || (rec.rmp_num_ratings != null && rec.rmp_num_ratings > 0)
+  const match = hasRmpData
+    ? (MATCH_CONFIG[rec.match_score] || MATCH_CONFIG['Decent fit'])
+    : NO_DATA_MATCH
   const tags  = rec.rmp_tags?.filter(Boolean) ?? []
   const hasWTA = rec.rmp_would_take_again != null && rec.rmp_would_take_again >= 0
 
@@ -180,7 +191,7 @@ export default function ProfessorCard({ rec, index }) {
             className="match-dot"
             style={{ background: match.color, boxShadow: `0 0 6px ${match.color}` }}
           />
-          {rec.match_score}
+          {match.label ?? rec.match_score}
         </span>
       </div>
 
