@@ -17,6 +17,21 @@ TERM_RE = re.compile(r'^\d{6}$')
 HTML_TAG_RE = re.compile(r'<[^>]+>')
 CONTROL_CHAR_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
 
+# Valid UNCG subject codes — sourced from Banner's get_subject endpoint (Fall 2026).
+# Catches typos/made-up departments before wasting a Banner round-trip.
+UNCG_SUBJECTS: frozenset[str] = frozenset({
+    "AAD", "ACC", "ADS", "AMS", "APD", "ARE", "ARH", "ARS", "ART", "ASL",
+    "AST", "ATY", "BIO", "BLS", "BPS", "BUS", "CED", "CHE", "CRS", "CSC",
+    "CSD", "CST", "CTP", "CTR", "DCE", "ECO", "ELC", "ENG", "ENS", "ENT",
+    "ERM", "FIN", "FMS", "FRE", "GEN", "GER", "GES", "GRK", "GRO", "HDF",
+    "HEA", "HED", "HHS", "HIS", "HSS", "HTM", "HUM", "IAN", "IAR", "IGS",
+    "ISE", "ISM", "IST", "JNS", "KIN", "LAT", "LIB", "LIS", "LLC", "MAS",
+    "MAT", "MBA", "MGT", "MKT", "MST", "MUE", "MUP", "MUS", "NAN", "NTR",
+    "NUR", "PCS", "PHI", "PHY", "PSC", "PSY", "RCS", "REL", "SCM", "SES",
+    "SOC", "SPA", "SSC", "STA", "SWK", "TED", "THR", "UNS", "VES", "VPA",
+    "WGS",
+})
+
 # Prompt injection patterns — case-insensitive
 _INJECTION_RE = re.compile(
     r'ignore\s+(previous|above|all)\s+(instructions?|prompts?|context)'
@@ -58,8 +73,14 @@ class RecommendRequest(BaseModel):
         v = v.strip().upper()
         m = COURSE_RE.match(v)
         if not m:
-            raise ValueError('Invalid course code — use the format "CSC 330" or "MAT191".')
-        return f"{m.group(1)} {m.group(2)}"
+            raise ValueError('Invalid course code — use the format "CSC 330" or "ENG101".')
+        subject = m.group(1)
+        if subject not in UNCG_SUBJECTS:
+            raise ValueError(
+                f'"{subject}" is not a valid UNCG subject code. '
+                'Check the course prefix and try again.'
+            )
+        return f"{subject} {m.group(2)}"
 
     @field_validator('term')
     @classmethod
