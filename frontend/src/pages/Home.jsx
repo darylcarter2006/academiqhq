@@ -3,13 +3,8 @@ import SearchForm from '../components/SearchForm.jsx'
 import ProfessorCard from '../components/ProfessorCard.jsx'
 import LoadingSkeleton from '../components/LoadingSkeleton.jsx'
 
-// Resolved once at module load from the Vite build-time env injection.
-// In dev: falls back to '' so Vite's proxy handles /api/* → localhost:8000.
-// In production: VITE_API_URL must be set on Vercel before building,
-// e.g. https://academiqhq-api.onrender.com (no trailing slash).
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
-// Diagnostics — always visible in browser DevTools console
 console.log('[AcademiqHQ] build env VITE_API_URL =', JSON.stringify(import.meta.env.VITE_API_URL))
 console.log('[AcademiqHQ] API_BASE =', JSON.stringify(API_BASE) || '(empty string — Vite proxy active)')
 console.log('[AcademiqHQ] PROD =', import.meta.env.PROD)
@@ -23,7 +18,7 @@ if (!API_BASE && import.meta.env.PROD) {
 
 export default function Home() {
   const [loading, setLoading] = React.useState(false)
-  const [error, setError] = React.useState(null)
+  const [error, setError]   = React.useState(null)
   const [result, setResult] = React.useState(null)
 
   async function handleSearch({ course, prefs, term }) {
@@ -48,8 +43,6 @@ export default function Home() {
       }
       setResult(await res.json())
     } catch (err) {
-      // "Failed to fetch" / "NetworkError" almost always means CORS rejection or
-      // the backend is unreachable. Surface the URL so it's obvious in the UI.
       const isNetworkError =
         err.message === 'Failed to fetch' || err.message.toLowerCase().includes('networkerror')
       console.error('[AcademiqHQ] fetch error:', err.message, '| url:', url)
@@ -64,60 +57,162 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen px-4 pt-8 sm:pt-14 pb-16 sm:pb-24">
-      <div className="max-w-2xl mx-auto flex flex-col gap-6 sm:gap-7">
+    <div className="relative min-h-screen overflow-x-hidden">
 
-        {/* Header */}
-        <header className="text-center mb-4">
-          <p className="text-xs font-semibold text-gold uppercase tracking-[0.18em] mb-3">
-            AcademiqHQ
-          </p>
-          <h1 className="font-serif text-[clamp(2rem,6vw,3.25rem)] font-normal text-parchment
-                          leading-tight text-balance mb-4">
-            Find Your Perfect Professor
-          </h1>
-          <p className="text-sm text-parchment-muted leading-relaxed max-w-md mx-auto">
-            Enter a UNCG course ID, tell us what matters, and we'll rank every professor using real Rate My Professors data.
-          </p>
-        </header>
+      {/* ── Ambient orb background ───────────────────────────── */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        {/* Gold orb — top left */}
+        <div
+          className="absolute rounded-full"
+          style={{
+            width: 780, height: 780,
+            top: '-18%', left: '-12%',
+            background: 'radial-gradient(circle at 40% 40%, rgba(232,160,32,0.13) 0%, transparent 68%)',
+            filter: 'blur(48px)',
+            animation: 'orbDrift1 30s ease-in-out infinite alternate',
+          }}
+        />
+        {/* Arctic blue orb — bottom right */}
+        <div
+          className="absolute rounded-full"
+          style={{
+            width: 900, height: 900,
+            bottom: '-22%', right: '-18%',
+            background: 'radial-gradient(circle at 60% 60%, rgba(94,200,240,0.11) 0%, transparent 65%)',
+            filter: 'blur(64px)',
+            animation: 'orbDrift2 38s ease-in-out infinite alternate',
+          }}
+        />
+        {/* Violet-gold orb — center */}
+        <div
+          className="absolute rounded-full"
+          style={{
+            width: 560, height: 560,
+            top: '38%', left: '28%',
+            background: 'radial-gradient(circle, rgba(150,100,220,0.06) 0%, transparent 68%)',
+            filter: 'blur(80px)',
+            animation: 'orbDrift3 24s ease-in-out infinite alternate',
+          }}
+        />
+        {/* Subtle grid overlay */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(232,160,32,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(232,160,32,0.025) 1px, transparent 1px)',
+            backgroundSize: '56px 56px',
+          }}
+        />
+      </div>
 
-        {/* Form */}
-        <SearchForm onSubmit={handleSearch} loading={loading} />
+      {/* ── Page content ─────────────────────────────────────── */}
+      <div className="relative z-10 px-4 pt-12 sm:pt-20 pb-20 sm:pb-32">
+        <div className="max-w-2xl mx-auto flex flex-col gap-8 sm:gap-10">
 
-        {/* Error */}
-        {error && (
-          <div className="bg-red-950 border border-red-800 rounded-xl px-5 py-4
-                          text-sm text-red-400">
-            <strong className="font-semibold">Error:</strong> {error}
-          </div>
-        )}
+          {/* ── Hero ─────────────────────────────────────────── */}
+          <header className="text-center">
 
-        {/* Loading */}
-        {loading && <LoadingSkeleton />}
-
-        {/* Results */}
-        {result && !loading && (
-          <section className="flex flex-col gap-5">
-            <div>
-              <h2 className="font-serif text-xl sm:text-2xl font-normal text-parchment text-balance">
-                {result.professors_found} professor{result.professors_found !== 1 ? 's' : ''} for{' '}
-                <span className="text-gold">{result.course_code}</span>
-                {result.term ? ` · ${result.term}` : ''}
-              </h2>
-              {result.summary && (
-                <p className="text-sm text-parchment-muted leading-relaxed mt-2">{result.summary}</p>
-              )}
-              <p className="text-xs text-parchment-muted/60 mt-1">
-                {result.sections_found} section{result.sections_found !== 1 ? 's' : ''} found
-              </p>
+            {/* Logo + wordmark */}
+            <div className="hero-fade inline-flex items-center gap-2.5 mb-6">
+              <img
+                src="/favicon.png"
+                alt="AcademiqHQ"
+                className="w-7 h-7 object-contain opacity-90"
+                aria-hidden
+              />
+              <span
+                className="text-[0.65rem] font-bold tracking-[0.22em] uppercase"
+                style={{ color: 'var(--gold)' }}
+              >
+                AcademiqHQ
+              </span>
             </div>
 
-            {result.recommendations.map((rec, i) => (
-              <ProfessorCard key={`${rec.instructor_name}-${rec.crn}`} rec={rec} index={i} />
-            ))}
-          </section>
-        )}
+            {/* Main heading */}
+            <h1
+              className="hero-fade hero-fade-2 font-serif text-balance leading-none mb-5"
+              style={{ fontSize: 'clamp(2.4rem, 7vw, 3.8rem)' }}
+            >
+              <span className="block text-parchment">Find Your Perfect</span>
+              <span className="block italic gradient-text" style={{ marginTop: '0.04em' }}>
+                Professor.
+              </span>
+            </h1>
 
+            {/* Subtitle */}
+            <p className="hero-fade hero-fade-3 text-sm text-parchment-muted leading-relaxed max-w-sm mx-auto">
+              Enter a course, tell us what matters, and we'll rank every professor
+              using real Rate My Professors data.
+            </p>
+
+            {/* Decorative rule */}
+            <div className="hero-fade hero-fade-4 gold-rule max-w-[180px] mx-auto mt-6" />
+          </header>
+
+          {/* ── Search form ──────────────────────────────────── */}
+          <div className="hero-fade hero-fade-4">
+            <SearchForm onSubmit={handleSearch} loading={loading} />
+          </div>
+
+          {/* ── Error ────────────────────────────────────────── */}
+          {error && (
+            <div
+              className="glass-panel px-5 py-4 text-sm"
+              style={{
+                background:
+                  'linear-gradient(160deg, rgba(40,8,14,0.85), rgba(30,6,10,0.90)) padding-box, linear-gradient(135deg, rgba(244,63,94,0.3), rgba(244,63,94,0.08)) border-box',
+                border: '1px solid transparent',
+                borderRadius: 14,
+              }}
+            >
+              <span className="font-semibold text-rose-400">Error: </span>
+              <span className="text-rose-300/80">{error}</span>
+            </div>
+          )}
+
+          {/* ── Loading ──────────────────────────────────────── */}
+          {loading && <LoadingSkeleton />}
+
+          {/* ── Results ──────────────────────────────────────── */}
+          {result && !loading && (
+            <section className="flex flex-col gap-5">
+
+              {/* Results header */}
+              <div className="flex flex-col gap-1">
+                <h2 className="font-serif text-xl sm:text-2xl font-normal text-parchment text-balance leading-snug">
+                  <span className="text-parchment-dim font-mono text-base font-medium mr-2">
+                    {result.professors_found}
+                  </span>
+                  professor{result.professors_found !== 1 ? 's' : ''} for{' '}
+                  <span style={{ color: 'var(--gold)' }}>{result.course_code}</span>
+                  {result.term ? (
+                    <span className="text-parchment-muted text-base font-sans font-normal"> · {result.term}</span>
+                  ) : null}
+                </h2>
+
+                {result.summary && (
+                  <p className="text-sm text-parchment-muted leading-relaxed mt-1">
+                    {result.summary}
+                  </p>
+                )}
+
+                <p className="text-xs text-parchment-muted/50 font-mono mt-0.5">
+                  {result.sections_found} section{result.sections_found !== 1 ? 's' : ''} found
+                </p>
+              </div>
+
+              {/* Professor cards */}
+              {result.recommendations.map((rec, i) => (
+                <ProfessorCard
+                  key={`${rec.instructor_name}-${rec.crn}`}
+                  rec={rec}
+                  index={i}
+                />
+              ))}
+            </section>
+          )}
+
+        </div>
       </div>
     </div>
   )
