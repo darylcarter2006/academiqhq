@@ -139,7 +139,7 @@ export default function Home() {
 
             {/* Subtitle */}
             <p className="hero-fade hero-fade-3 leading-relaxed max-w-lg mx-auto" style={{ fontSize: '1.05rem', color: '#c8b898' }}>
-              Enter a course, tell us what matters, and we'll rank every professor
+              Enter a UNCG course ID, tell us what matters, and we'll rank every professor
               using real Rate My Professors data.
             </p>
 
