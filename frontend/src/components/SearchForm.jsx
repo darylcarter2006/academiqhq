@@ -10,8 +10,6 @@ const TERMS = [
   { label: 'Auto-detect', value: '' },
   { label: 'Summer 2026', value: '202605' },
   { label: 'Fall 2026',   value: '202608' },
-  { label: 'Spring 2026', value: '202601' },
-  { label: 'Spring 2027', value: '202701' },
 ]
 
 export default function SearchForm({ onSubmit, loading }) {
