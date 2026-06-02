@@ -137,6 +137,6 @@ async def startup():
     if not api_key:
         logger.warning("ANTHROPIC_API_KEY not set — Claude ranking will fail on every request")
     else:
-        logger.info("ANTHROPIC_API_KEY present (prefix: %s...)", api_key[:12])
+        logger.info("ANTHROPIC_API_KEY successfully loaded.")
     logger.info("Allowed CORS origins: %s", ALLOWED_ORIGINS)
     logger.info("Academiq backend started")

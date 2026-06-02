@@ -392,21 +392,26 @@ async def fetch_sections_api(
         # Fetch instructor + meeting times per CRN concurrently.
         # The search results endpoint never populates faculty[]; the data
         # is only available via getFacultyMeetingTimes.
+        # Semaphore caps concurrent requests to Banner at 5 to avoid
+        # flooding UNCG's servers when a course has many sections.
         import asyncio as _asyncio
 
+        _sem = _asyncio.Semaphore(5)
+
         async def _fetch_fmt(crn: str):
-            try:
-                r = await client.get(
-                    BANNER9_FACULTY_MEETINGS,
-                    params={"term": term_code, "courseReferenceNumber": crn},
-                    headers={"X-Requested-With": "XMLHttpRequest"},
-                )
-                r.raise_for_status()
-                fmt_list = r.json().get("fmt", [])
-                return crn, _parse_meeting_times_api([], fmt_list)
-            except Exception as exc:
-                logger.warning(f"getFacultyMeetingTimes failed for CRN {crn}: {exc}")
-                return crn, ("TBA", [])
+            async with _sem:
+                try:
+                    r = await client.get(
+                        BANNER9_FACULTY_MEETINGS,
+                        params={"term": term_code, "courseReferenceNumber": crn},
+                        headers={"X-Requested-With": "XMLHttpRequest"},
+                    )
+                    r.raise_for_status()
+                    fmt_list = r.json().get("fmt", [])
+                    return crn, _parse_meeting_times_api([], fmt_list)
+                except Exception as exc:
+                    logger.warning(f"getFacultyMeetingTimes failed for CRN {crn}: {exc}")
+                    return crn, ("TBA", [])
 
         fmt_results = await _asyncio.gather(
             *[_fetch_fmt(s["crn"]) for s in raw_sections]
