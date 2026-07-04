@@ -1,7 +1,9 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 import SearchForm from '../components/SearchForm.jsx'
 import ProfessorCard from '../components/ProfessorCard.jsx'
 import LoadingSkeleton from '../components/LoadingSkeleton.jsx'
+import { useSchedule } from '../hooks/useSchedule.js'
 
 // Resolved once at module load from the Vite build-time env injection.
 // In dev: falls back to '' so Vite's proxy handles /api/* → localhost:8000.
@@ -23,8 +25,9 @@ if (!API_BASE && import.meta.env.PROD) {
 
 export default function Home() {
   const [loading, setLoading] = React.useState(false)
-  const [error, setError] = React.useState(null)
-  const [result, setResult] = React.useState(null)
+  const [error, setError]     = React.useState(null)
+  const [result, setResult]   = React.useState(null)
+  const { courses, addCourse, user } = useSchedule()
 
   async function handleSearch({ course, prefs, term }) {
     setLoading(true)
@@ -66,6 +69,25 @@ export default function Home() {
   return (
     <div className="min-h-screen px-4 pt-8 sm:pt-14 pb-16 sm:pb-24">
       <div className="max-w-2xl mx-auto flex flex-col gap-6 sm:gap-7">
+
+        {/* Nav row */}
+        <div className="flex items-center justify-between">
+          <Link
+            to="/schedule"
+            className="text-xs text-gold/80 hover:text-gold transition-colors"
+          >
+            My Schedule{courses.length > 0 ? ` (${courses.length})` : ''}
+          </Link>
+          {user ? (
+            <span className="text-xs text-parchment-muted truncate max-w-[160px]">
+              {user.email}
+            </span>
+          ) : (
+            <Link to="/login" className="text-xs text-parchment-muted hover:text-gold transition-colors">
+              Sign in
+            </Link>
+          )}
+        </div>
 
         {/* Header */}
         <header className="text-center mb-4">
@@ -113,7 +135,16 @@ export default function Home() {
             </div>
 
             {result.recommendations.map((rec, i) => (
-              <ProfessorCard key={`${rec.instructor_name}-${rec.crn}`} rec={rec} index={i} />
+              <ProfessorCard
+                key={`${rec.instructor_name}-${rec.crn}`}
+                rec={rec}
+                index={i}
+                onAddToSchedule={{
+                  courseCode: result.course_code,
+                  semester:   result.term,
+                  addCourse,
+                }}
+              />
             ))}
           </section>
         )}

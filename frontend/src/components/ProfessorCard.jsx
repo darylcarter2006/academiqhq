@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import AddToScheduleModal from './AddToScheduleModal.jsx'
 
 const FIT = {
   'Great fit':  { pill: 'bg-emerald-950 border border-emerald-700 text-emerald-400' },
@@ -33,8 +34,9 @@ function Stat({ label, value, className = '' }) {
   )
 }
 
-export default function ProfessorCard({ rec, index }) {
-  const [expanded, setExpanded] = useState(false)
+export default function ProfessorCard({ rec, index, onAddToSchedule }) {
+  const [expanded, setExpanded]   = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
   const hasRmpData = rec.rmp_rating != null || (rec.rmp_num_ratings != null && rec.rmp_num_ratings > 0)
   const fit = hasRmpData ? (FIT[rec.match_score] || FIT['Decent fit']) : NO_DATA_FIT
   const fitLabel = hasRmpData ? rec.match_score : 'No RMP Data'
@@ -116,17 +118,39 @@ export default function ProfessorCard({ rec, index }) {
         </div>
       )}
 
-      {/* RMP link */}
-      {rec.rmp_url && (
-        <a
-          href={rec.rmp_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-gold/70 hover:text-gold transition-colors duration-150
-                     inline-flex items-center gap-1 mt-0.5 w-fit min-h-[36px]"
-        >
-          View on Rate My Professors ↗
-        </a>
+      {/* RMP link + Add to Schedule */}
+      <div className="flex items-center gap-4 flex-wrap">
+        {rec.rmp_url && (
+          <a
+            href={rec.rmp_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-gold/70 hover:text-gold transition-colors duration-150
+                       inline-flex items-center gap-1 mt-0.5 min-h-[36px]"
+          >
+            View on Rate My Professors ↗
+          </a>
+        )}
+        {onAddToSchedule && (
+          <button
+            onClick={() => setModalOpen(true)}
+            className="text-xs text-gold/70 hover:text-gold transition-colors duration-150
+                       inline-flex items-center gap-1 mt-0.5 min-h-[36px]"
+          >
+            + Add to Schedule
+          </button>
+        )}
+      </div>
+
+      {onAddToSchedule && (
+        <AddToScheduleModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          rec={rec}
+          courseCode={onAddToSchedule.courseCode}
+          semester={onAddToSchedule.semester}
+          onConfirm={(courseObj) => onAddToSchedule.addCourse(courseObj, onAddToSchedule.semester)}
+        />
       )}
     </article>
   )

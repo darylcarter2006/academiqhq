@@ -1,5 +1,9 @@
 import React from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Home from './pages/Home.jsx'
+import SchedulePage from './pages/SchedulePage.jsx'
+import LoginPage from './pages/LoginPage.jsx'
+import SignupPage from './pages/SignupPage.jsx'
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -42,7 +46,14 @@ class ErrorBoundary extends React.Component {
 export default function App() {
   return (
     <ErrorBoundary>
-      <Home />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/"         element={<Home />} />
+          <Route path="/schedule" element={<SchedulePage />} />
+          <Route path="/login"    element={<LoginPage />} />
+          <Route path="/signup"   element={<SignupPage />} />
+        </Routes>
+      </BrowserRouter>
     </ErrorBoundary>
   )
 }

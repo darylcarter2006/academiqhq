@@ -22,6 +22,7 @@ from slowapi import _rate_limit_exceeded_handler
 
 from limiter import limiter
 from routes.recommend import router
+from routes.schedule import router as schedule_router
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -68,8 +69,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["POST", "GET", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_methods=["POST", "GET", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # ---------------------------------------------------------------------------
@@ -125,6 +126,7 @@ async def health():
 
 
 app.include_router(router, prefix="/api")
+app.include_router(schedule_router, prefix="/api")
 
 
 # ---------------------------------------------------------------------------

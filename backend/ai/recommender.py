@@ -120,6 +120,7 @@ def _validate_output(ranked: Any, expected_count: int) -> list[dict]:
         # Remove any unexpected top-level keys Claude might add
         allowed_keys = {
             'instructor_name', 'section_number', 'crn', 'schedule',
+            'credits', 'title', 'building', 'room',
             'rmp_rating', 'rmp_difficulty', 'rmp_would_take_again',
             'rmp_num_ratings', 'rmp_url', 'rmp_tags',
             'match_score', 'explanation', 'summary',
@@ -247,7 +248,8 @@ async def rank_professors(
         orig = orig_by_crn.get(crn, {})
         for key in ('rmp_url', 'rmp_rating', 'rmp_difficulty',
                     'rmp_would_take_again', 'rmp_num_ratings',
-                    'rmp_tags', 'schedule', 'section_number'):
+                    'rmp_tags', 'schedule', 'section_number',
+                    'credits', 'title', 'building', 'room'):
             rec[key] = orig.get(key)
 
     return ranked
