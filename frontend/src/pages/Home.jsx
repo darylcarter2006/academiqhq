@@ -4,6 +4,7 @@ import SearchForm from '../components/SearchForm.jsx'
 import ProfessorCard from '../components/ProfessorCard.jsx'
 import LoadingSkeleton from '../components/LoadingSkeleton.jsx'
 import { useSchedule } from '../hooks/useSchedule.js'
+import { supabase } from '../lib/supabase.js'
 
 // Resolved once at module load from the Vite build-time env injection.
 // In dev: falls back to '' so Vite's proxy handles /api/* → localhost:8000.
@@ -79,9 +80,17 @@ export default function Home() {
             My Schedule{courses.length > 0 ? ` (${courses.length})` : ''}
           </Link>
           {user ? (
-            <span className="text-xs text-parchment-muted truncate max-w-[160px]">
-              {user.email}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-parchment-muted truncate max-w-[140px]">
+                {user.email}
+              </span>
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className="text-xs text-parchment-muted hover:text-gold transition-colors"
+              >
+                Sign out
+              </button>
+            </div>
           ) : (
             <Link to="/login" className="text-xs text-parchment-muted hover:text-gold transition-colors">
               Sign in

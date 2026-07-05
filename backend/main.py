@@ -23,6 +23,7 @@ from slowapi import _rate_limit_exceeded_handler
 from limiter import limiter
 from routes.recommend import router
 from routes.schedule import router as schedule_router
+import auth as _auth
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -141,4 +142,12 @@ async def startup():
     else:
         logger.info("ANTHROPIC_API_KEY successfully loaded.")
     logger.info("Allowed CORS origins: %s", ALLOWED_ORIGINS)
+
+    # Load Supabase JWKS for JWT verification
+    _auth.load_jwks()
+    if _auth._PUBLIC_KEYS:
+        logger.info("Supabase JWKS loaded: %d key(s)", len(_auth._PUBLIC_KEYS))
+    else:
+        logger.warning("Supabase JWKS failed to load — schedule auth will return 503")
+
     logger.info("Academiq backend started")

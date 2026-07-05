@@ -41,9 +41,10 @@ async function apiFetch(path, method = 'GET', body, token) {
 }
 
 export function useSchedule() {
-  const [user, setUser]       = useState(null)
-  const [courses, setCourses] = useState([])
+  const [user, setUser]         = useState(null)
+  const [courses, setCourses]   = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [syncError, setSyncError] = useState(null)
   const tokenRef = useRef(null)
 
   const semester = courses[0]?.semester ?? ''
@@ -52,8 +53,10 @@ export function useSchedule() {
     try {
       const data = await apiFetch(`/schedule/${userId}`, 'GET', undefined, token)
       setCourses(data.courses ?? [])
+      setSyncError(null)
     } catch (err) {
       console.error('[useSchedule] Failed to load from backend:', err)
+      setSyncError(err.message)
     }
   }, [])
 
@@ -111,8 +114,10 @@ export function useSchedule() {
           { semester: semesterLabel || semester, courses: newCourses },
           tokenRef.current,
         )
+        setSyncError(null)
       } catch (err) {
         console.error('[useSchedule] addCourse sync failed:', err)
+        setSyncError(`Schedule not saved: ${err.message}`)
       }
     } else {
       writeLocalStorage(newCourses)
@@ -160,5 +165,5 @@ export function useSchedule() {
     }
   }, [user])
 
-  return { courses, semester, addCourse, removeCourse, clearSchedule, isLoading, user }
+  return { courses, semester, addCourse, removeCourse, clearSchedule, isLoading, syncError, user }
 }

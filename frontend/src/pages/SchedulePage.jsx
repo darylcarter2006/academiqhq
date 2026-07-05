@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useSchedule } from '../hooks/useSchedule.js'
+import { supabase } from '../lib/supabase.js'
 import WeeklyCalendar from '../components/WeeklyCalendar.jsx'
 import MergeScheduleModal from '../components/MergeScheduleModal.jsx'
 
@@ -8,7 +9,7 @@ const LS_KEY = 'academiq_schedule'
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
 export default function SchedulePage() {
-  const { courses, semester, removeCourse, clearSchedule, isLoading, user, addCourse } = useSchedule()
+  const { courses, semester, removeCourse, clearSchedule, isLoading, syncError, user, addCourse } = useSchedule()
   const [showClearConfirm, setShowClearConfirm]   = useState(false)
   const [bannerDismissed, setBannerDismissed]     = useState(false)
   const [showMerge, setShowMerge]                 = useState(false)
@@ -70,6 +71,13 @@ export default function SchedulePage() {
           ← Back to recommendations
         </Link>
 
+        {/* Sync error */}
+        {syncError && (
+          <div className="bg-red-950 border border-red-800 rounded-xl px-5 py-4 text-sm text-red-400">
+            <strong className="font-semibold">Sync error:</strong> {syncError}
+          </div>
+        )}
+
         {/* Guest banner */}
         {showGuestBanner && (
           <div className="bg-navy-700 border border-gold/30 rounded-xl px-5 py-4
@@ -95,6 +103,14 @@ export default function SchedulePage() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="font-serif text-2xl sm:text-3xl text-parchment">My Schedule</h1>
           <div className="flex items-center gap-3">
+            {user && (
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className="text-xs text-parchment-muted hover:text-gold transition-colors"
+              >
+                Sign out
+              </button>
+            )}
             {!user && (
               <Link
                 to="/login"
