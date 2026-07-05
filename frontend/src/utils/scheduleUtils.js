@@ -29,14 +29,16 @@ export function parseScheduleString(scheduleStr) {
 
   const first = scheduleStr.split(' / ')[0].trim()
 
-  // Match: DAYS HH:MM AM/PM–HH:MM AM/PM (en-dash or hyphen)
+  // Match: DAYS HH:MM AM/PM–HH:MM AM/PM (en-dash or hyphen).
+  // Banner day codes include S (Sat) and U (Sun); the calendar only renders
+  // M–F columns, but weekend letters must not fail the whole parse.
   const match = first.match(
-    /^([MTWRF]+)\s+(\d{1,2}:\d{2}\s*(?:AM|PM))\s*[–-]\s*(\d{1,2}:\d{2}\s*(?:AM|PM))$/i
+    /^([MTWRFSU]+)\s+(\d{1,2}:\d{2}\s*(?:AM|PM))\s*[–-]\s*(\d{1,2}:\d{2}\s*(?:AM|PM))$/i
   )
   if (!match) return { days: [], startTime: null, endTime: null }
 
   const dayStr = match[1]
-  const days = [...dayStr].filter(ch => 'MTWRF'.includes(ch))
+  const days = [...dayStr].filter(ch => 'MTWRFSU'.includes(ch))
 
   function to24h(t) {
     const m = t.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)

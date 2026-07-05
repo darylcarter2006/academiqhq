@@ -78,7 +78,9 @@ app.add_middleware(
 # Security headers + body size limit
 # ---------------------------------------------------------------------------
 
-MAX_BODY_BYTES = 8_192  # 8 KB — requests larger than this are rejected
+# 32 KB — a full 20-course schedule payload is ~12 KB, so 8 KB would reject
+# legitimate saves; recommend requests remain far below this either way.
+MAX_BODY_BYTES = 32_768
 
 
 @app.middleware("http")

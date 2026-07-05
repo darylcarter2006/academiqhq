@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Home from './pages/Home.jsx'
 import SchedulePage from './pages/SchedulePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
@@ -52,6 +52,7 @@ export default function App() {
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/login"    element={<LoginPage />} />
           <Route path="/signup"   element={<SignupPage />} />
+          <Route path="*"         element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>

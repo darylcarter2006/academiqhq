@@ -1,10 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { parseScheduleString } from '../utils/scheduleUtils.js'
 
 export default function AddToScheduleModal({ isOpen, onClose, rec, courseCode, semester, onConfirm }) {
+  const [addError, setAddError] = useState(null)
+
   useEffect(() => {
     if (!isOpen) return
+    setAddError(null)
     const handle = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
@@ -14,6 +17,8 @@ export default function AddToScheduleModal({ isOpen, onClose, rec, courseCode, s
 
   const { days, startTime, endTime } = parseScheduleString(rec.schedule)
   const hasTimes = startTime && endTime
+  // parseInt fallback must not use || — 0-credit labs are legitimate.
+  const parsedCredits = parseInt(rec.credits, 10)
 
   const courseObj = {
     crn:         rec.crn,
@@ -27,7 +32,16 @@ export default function AddToScheduleModal({ isOpen, onClose, rec, courseCode, s
     building:    rec.building ?? '',
     room:        rec.room ?? '',
     semester:    semester ?? '',
-    creditHours: parseInt(rec.credits) || 3,
+    creditHours: Number.isNaN(parsedCredits) ? 3 : parsedCredits,
+  }
+
+  async function handleConfirm() {
+    const res = await onConfirm(courseObj)
+    if (res?.error) {
+      setAddError(res.error)
+      return
+    }
+    onClose()
   }
 
   return createPortal(
@@ -74,6 +88,10 @@ export default function AddToScheduleModal({ isOpen, onClose, rec, courseCode, s
           </p>
         )}
 
+        {addError && (
+          <p className="text-red-400 text-xs">{addError}</p>
+        )}
+
         {/* Actions */}
         <div className="flex gap-3 justify-end">
           <button
@@ -84,7 +102,7 @@ export default function AddToScheduleModal({ isOpen, onClose, rec, courseCode, s
             Cancel
           </button>
           <button
-            onClick={() => { onConfirm(courseObj); onClose() }}
+            onClick={handleConfirm}
             className="px-5 py-2.5 rounded-lg bg-gold text-navy-900 text-sm font-bold
                        hover:bg-gold-light shadow-[0_0_20px_rgba(201,150,58,0.25)]
                        transition-all duration-150"

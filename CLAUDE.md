@@ -35,7 +35,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ## Architecture
 
-The single API endpoint is `POST /api/recommend`. The request body is validated by Pydantic in `routes/recommend.py`, then the call fan-out goes:
+The main API endpoint is `POST /api/recommend`. The request body is validated by Pydantic in `routes/recommend.py`, then the call fan-out goes:
 
 ```
 routes/recommend.py
@@ -67,8 +67,15 @@ routes/recommend.py
 - Merges `rmp_url`, `rmp_tags`, `schedule` back from original data in case Claude drops them
 - On any Claude error, falls back to original section order with `match_score: "Decent fit"`
 
+**Schedule builder** (added on `feature/schedule-builder`):
+- Routes in `routes/schedule.py`: `GET/POST /api/schedule/{user_id}` and `DELETE /api/schedule/{user_id}/course/{crn}`; all require a Supabase JWT and enforce `user_id == token sub`
+- JWT verification in `auth.py`: ES256 via JWKS fetched from `SUPABASE_URL` at startup (re-fetched on unknown kid, 60 s cooldown)
+- Schedules stored in the `saved_schedules` table in `cache.db` (see Notes — this file is no longer safe to delete casually)
+- Frontend: React Router pages `/`, `/schedule`, `/login`, `/signup`; `useSchedule` hook is the single source of truth (guests → localStorage key `academiq_schedule` as a bare JSON array, signed-in → backend)
+- Requires `SUPABASE_URL` in `backend/.env` and `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in `frontend/.env`
+
 **Frontend** (`frontend/src/`):
-- Single-page app, no router. All state lives in `App.jsx`.
+- React Router SPA — routes defined in `App.jsx`, pages in `src/pages/`.
 - `ProfessorCard.jsx` renders one ranked result; `LoadingSkeleton.jsx` shows a shimmer with stage messages during the ~15 s wait
 - No CSS framework — all styling is inline with a dark GitHub-style palette (`#0d1117` background, `#f5a623` gold accent)
 
@@ -86,5 +93,5 @@ routes/recommend.py
 
 - `temp-vite/` is a leftover Vite scaffold — it is not part of the app and can be ignored.
 - Backend packages are installed only inside `backend/venv/`; always invoke Python as `venv/bin/python` or `venv/bin/uvicorn` from the `backend/` directory.
-- The SQLite cache file (`backend/cache.db`) is gitignored. Delete it to force fresh RMP fetches.
+- The SQLite file (`backend/cache.db`) is gitignored. **Warning:** since the schedule-builder feature it holds the `saved_schedules` table (real user data) alongside the RMP cache — deleting the file wipes saved schedules too. To force fresh RMP fetches, clear only the `rmp_cache` table. On Render the filesystem is ephemeral, so saved schedules do not survive a redeploy — migrating them to Supabase Postgres is the known follow-up.
 - CORS is restricted to `localhost:5173` and `localhost:4173` (Vite preview); update `main.py` before deploying.

@@ -10,4 +10,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
-export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '')
+// createClient throws on an empty URL, which would crash the whole bundle at
+// module load (before the ErrorBoundary mounts). Placeholders keep the app
+// usable without Supabase env vars — auth calls just fail gracefully.
+export const supabase = createClient(
+  supabaseUrl || 'https://unconfigured.supabase.co',
+  supabaseAnonKey || 'unconfigured',
+)

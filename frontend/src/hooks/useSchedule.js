@@ -46,6 +46,7 @@ export function useSchedule() {
   const [isLoading, setIsLoading] = useState(true)
   const [syncError, setSyncError] = useState(null)
   const tokenRef = useRef(null)
+  const loadedUserRef = useRef(null)
 
   const semester = courses[0]?.semester ?? ''
 
@@ -69,11 +70,17 @@ export function useSchedule() {
         if (session?.user) {
           tokenRef.current = session.access_token
           setUser(session.user)
-          setIsLoading(true)
-          await loadFromBackend(session.user.id, session.access_token)
-          if (mounted) setIsLoading(false)
+          // TOKEN_REFRESHED and tab-refocus re-emit SIGNED_IN for the same
+          // user; reloading then would clobber unsynced local changes.
+          if (loadedUserRef.current !== session.user.id) {
+            setIsLoading(true)
+            await loadFromBackend(session.user.id, session.access_token)
+            loadedUserRef.current = session.user.id
+            if (mounted) setIsLoading(false)
+          }
         } else {
           tokenRef.current = null
+          loadedUserRef.current = null
           setUser(null)
           setCourses(readLocalStorage())
           setIsLoading(false)
@@ -126,6 +133,36 @@ export function useSchedule() {
     return { error: null }
   }, [courses, semester, user])
 
+  // Batch add (used by the guest-schedule merge): dedupes by CRN and issues a
+  // single save, unlike calling addCourse in a loop which would race itself.
+  const addCourses = useCallback(async (coursesToAdd) => {
+    const additions = coursesToAdd.filter(c => !courses.some(e => e.crn === c.crn))
+    if (additions.length === 0) return { error: null }
+
+    const newCourses = [...courses, ...additions]
+    setCourses(newCourses)
+
+    if (user && tokenRef.current) {
+      try {
+        await apiFetch(
+          `/schedule/${user.id}`,
+          'POST',
+          { semester: newCourses[0]?.semester ?? '', courses: newCourses },
+          tokenRef.current,
+        )
+        setSyncError(null)
+      } catch (err) {
+        console.error('[useSchedule] addCourses sync failed:', err)
+        setSyncError(`Schedule not saved: ${err.message}`)
+        return { error: err.message }
+      }
+    } else {
+      writeLocalStorage(newCourses)
+    }
+
+    return { error: null }
+  }, [courses, user])
+
   const removeCourse = useCallback(async (crn) => {
     const newCourses = courses.filter(c => c.crn !== crn)
     setCourses(newCourses)
@@ -165,5 +202,5 @@ export function useSchedule() {
     }
   }, [user])
 
-  return { courses, semester, addCourse, removeCourse, clearSchedule, isLoading, syncError, user }
+  return { courses, semester, addCourse, addCourses, removeCourse, clearSchedule, isLoading, syncError, user }
 }

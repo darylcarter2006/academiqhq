@@ -6,10 +6,9 @@ import WeeklyCalendar from '../components/WeeklyCalendar.jsx'
 import MergeScheduleModal from '../components/MergeScheduleModal.jsx'
 
 const LS_KEY = 'academiq_schedule'
-const API_BASE = import.meta.env.VITE_API_URL || ''
 
 export default function SchedulePage() {
-  const { courses, semester, removeCourse, clearSchedule, isLoading, syncError, user, addCourse } = useSchedule()
+  const { courses, semester, removeCourse, clearSchedule, isLoading, syncError, user, addCourses } = useSchedule()
   const [showClearConfirm, setShowClearConfirm]   = useState(false)
   const [bannerDismissed, setBannerDismissed]     = useState(false)
   const [showMerge, setShowMerge]                 = useState(false)
@@ -33,16 +32,20 @@ export default function SchedulePage() {
   }, [user])
 
   async function handleMergeSave() {
+    let saved = false
     try {
       const raw   = localStorage.getItem(LS_KEY)
       const parsed = JSON.parse(raw ?? '[]')
-      if (Array.isArray(parsed)) {
-        for (const course of parsed) {
-          await addCourse(course, course.semester || '')
-        }
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const { error } = await addCourses(parsed)
+        saved = !error
+      } else {
+        saved = true
       }
-    } catch { /* ignore */ }
-    localStorage.removeItem(LS_KEY)
+    } catch { /* keep the local copy so nothing is lost */ }
+    // Only discard the guest schedule once it's actually on the server;
+    // on failure it stays in localStorage and the sync banner explains why.
+    if (saved) localStorage.removeItem(LS_KEY)
     setShowMerge(false)
   }
 

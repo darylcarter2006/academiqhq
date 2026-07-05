@@ -1,18 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import MergeScheduleModal from '../components/MergeScheduleModal.jsx'
-
-const LS_KEY = 'academiq_schedule'
-const API_BASE = import.meta.env.VITE_API_URL || ''
-
-function getLocalCourses() {
-  try {
-    const raw = localStorage.getItem(LS_KEY)
-    const parsed = JSON.parse(raw ?? '[]')
-    return Array.isArray(parsed) ? parsed : []
-  } catch { return [] }
-}
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -20,50 +8,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError]       = useState(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [showMerge, setShowMerge] = useState(false)
-  const [pendingSession, setPendingSession] = useState(null)
-
-  async function afterLogin(session) {
-    const local = getLocalCourses()
-    if (local.length > 0) {
-      setPendingSession(session)
-      setShowMerge(true)
-    } else {
-      navigate('/schedule')
-    }
-  }
-
-  async function handleMergeSave() {
-    if (!pendingSession) return
-    try {
-      const local = getLocalCourses()
-      const sem   = local[0]?.semester || ''
-      await fetch(`${API_BASE}/api/schedule/${pendingSession.user.id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${pendingSession.access_token}`,
-        },
-        body: JSON.stringify({ semester: sem, courses: local }),
-      })
-    } catch { /* silent — schedule page will load from backend on mount */ }
-    localStorage.removeItem(LS_KEY)
-    navigate('/schedule')
-  }
-
-  function handleMergeDiscard() {
-    localStorage.removeItem(LS_KEY)
-    navigate('/schedule')
-  }
 
   async function handleEmailLogin(e) {
     e.preventDefault()
     setError(null)
     setIsLoading(true)
     try {
-      const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
+      const { error: err } = await supabase.auth.signInWithPassword({ email, password })
       if (err) throw err
-      await afterLogin(data.session)
+      // SchedulePage detects the fresh sign-in and offers to merge any
+      // guest schedule — same flow as the OAuth redirect path.
+      navigate('/schedule')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -169,12 +124,6 @@ export default function LoginPage() {
         </p>
 
       </div>
-
-      <MergeScheduleModal
-        isOpen={showMerge}
-        onSave={handleMergeSave}
-        onDiscard={handleMergeDiscard}
-      />
     </div>
   )
 }

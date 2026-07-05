@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import logging
 import jwt
 import httpx
@@ -12,8 +13,27 @@ _SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 # kid -> (public_key_object, algorithm_string)
 _PUBLIC_KEYS: dict[str, tuple] = {}
 
+_last_jwks_fetch = 0.0
+_JWKS_REFRESH_COOLDOWN = 60  # seconds — bounds Supabase hits from bad tokens
+
+
+def _refresh_jwks_if_stale() -> None:
+    """Re-fetch JWKS at most once per cooldown window.
+
+    Covers a failed fetch at startup and Supabase signing-key rotation,
+    neither of which should require a process restart to recover from.
+    """
+    global _last_jwks_fetch
+    now = time.monotonic()
+    if now - _last_jwks_fetch < _JWKS_REFRESH_COOLDOWN:
+        return
+    _last_jwks_fetch = now
+    load_jwks()
+
 
 def load_jwks() -> None:
+    global _last_jwks_fetch
+    _last_jwks_fetch = time.monotonic()
     if not _SUPABASE_URL:
         logger.warning("SUPABASE_URL not set — schedule auth will not work")
         return
@@ -39,6 +59,8 @@ def load_jwks() -> None:
 
 def get_current_user(authorization: str = Header(...)) -> str:
     if not _PUBLIC_KEYS:
+        _refresh_jwks_if_stale()
+    if not _PUBLIC_KEYS:
         raise HTTPException(status_code=503, detail="Auth not configured.")
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization header.")
@@ -49,6 +71,8 @@ def get_current_user(authorization: str = Header(...)) -> str:
         header = jwt.get_unverified_header(token)
         kid = header.get("kid", "default")
 
+        if kid not in _PUBLIC_KEYS:
+            _refresh_jwks_if_stale()
         if kid not in _PUBLIC_KEYS:
             raise HTTPException(status_code=401, detail="Unknown token signing key.")
 

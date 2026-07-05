@@ -21,7 +21,7 @@ function formatTime(timeStr) {
   return `${hour}:${String(m).padStart(2, '0')} ${period}`
 }
 
-function CourseBlock({ course, style, widthPct, leftPct, isConflicting, onRemove }) {
+function CourseBlock({ course, style, widthPct, leftPct, isConflicting }) {
   const colorClass = getCourseColor(course.courseCode)
   const lastName = course.professor?.split(' ').pop() ?? course.professor ?? ''
 
