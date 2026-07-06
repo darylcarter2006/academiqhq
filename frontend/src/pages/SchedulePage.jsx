@@ -4,14 +4,16 @@ import { useSchedule } from '../hooks/useSchedule.js'
 import { supabase } from '../lib/supabase.js'
 import WeeklyCalendar from '../components/WeeklyCalendar.jsx'
 import MergeScheduleModal from '../components/MergeScheduleModal.jsx'
+import ManualAddCourseModal from '../components/ManualAddCourseModal.jsx'
 
 const LS_KEY = 'academiq_schedule'
 
 export default function SchedulePage() {
-  const { courses, semester, removeCourse, clearSchedule, isLoading, syncError, user, addCourses } = useSchedule()
+  const { courses, semester, removeCourse, clearSchedule, isLoading, syncError, user, addCourse, addCourses } = useSchedule()
   const [showClearConfirm, setShowClearConfirm]   = useState(false)
   const [bannerDismissed, setBannerDismissed]     = useState(false)
   const [showMerge, setShowMerge]                 = useState(false)
+  const [showManualAdd, setShowManualAdd]         = useState(false)
   const prevUserRef = useRef(null)
 
   const isGuest = !user
@@ -123,6 +125,13 @@ export default function SchedulePage() {
                 Sign in
               </Link>
             )}
+            <button
+              onClick={() => setShowManualAdd(true)}
+              className="text-sm text-parchment-muted border border-navy-400 rounded-lg
+                         px-4 py-2 hover:border-gold hover:text-gold transition-colors"
+            >
+              + Add a Course Manually
+            </button>
             {courses.length > 0 && (
               <button
                 onClick={() => setShowClearConfirm(true)}
@@ -216,6 +225,12 @@ export default function SchedulePage() {
         isOpen={showMerge}
         onSave={handleMergeSave}
         onDiscard={handleMergeDiscard}
+      />
+
+      <ManualAddCourseModal
+        isOpen={showManualAdd}
+        onClose={() => setShowManualAdd(false)}
+        addCourse={addCourse}
       />
     </div>
   )

@@ -23,6 +23,7 @@ from slowapi import _rate_limit_exceeded_handler
 from limiter import limiter
 from routes.recommend import router
 from routes.schedule import router as schedule_router
+from routes.sections import router as sections_router
 import auth as _auth
 
 # ---------------------------------------------------------------------------
@@ -130,6 +131,7 @@ async def health():
 
 app.include_router(router, prefix="/api")
 app.include_router(schedule_router, prefix="/api")
+app.include_router(sections_router, prefix="/api")
 
 
 # ---------------------------------------------------------------------------
