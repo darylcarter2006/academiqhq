@@ -1,5 +1,5 @@
 import React from 'react'
-import { getBlockStyle, getCourseColor, hasConflict, groupOverlappingBlocks } from '../utils/scheduleUtils.js'
+import { getBlockStyle, getCourseColor, hasConflict, groupOverlappingBlocks, getMeetings } from '../utils/scheduleUtils.js'
 
 const DAYS = ['M', 'T', 'W', 'R', 'F']
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -21,7 +21,7 @@ function formatTime(timeStr) {
   return `${hour}:${String(m).padStart(2, '0')} ${period}`
 }
 
-function CourseBlock({ course, style, widthPct, leftPct, isConflicting }) {
+function CourseBlock({ course, meeting, style, widthPct, leftPct, isConflicting }) {
   const colorClass = getCourseColor(course.courseCode)
   const lastName = course.professor?.split(' ').pop() ?? course.professor ?? ''
 
@@ -34,7 +34,7 @@ function CourseBlock({ course, style, widthPct, leftPct, isConflicting }) {
         width:  `${widthPct}%`,
         left:   `${leftPct}%`,
       }}
-      title={`${course.courseCode} — ${course.professor}\n${formatTime(course.startTime)}–${formatTime(course.endTime)}`}
+      title={`${course.courseCode} — ${course.professor}\n${formatTime(meeting.startTime)}–${formatTime(meeting.endTime)}`}
     >
       <div className="px-1.5 py-1 h-full overflow-hidden flex flex-col">
         <p className="text-[11px] font-semibold leading-tight truncate">{course.courseCode}</p>
@@ -46,7 +46,7 @@ function CourseBlock({ course, style, widthPct, leftPct, isConflicting }) {
         )}
         {style.height >= 68 && (
           <p className="text-[10px] leading-tight opacity-70 mt-auto">
-            {formatTime(course.startTime)}–{formatTime(course.endTime)}
+            {formatTime(meeting.startTime)}–{formatTime(meeting.endTime)}
           </p>
         )}
       </div>
@@ -121,9 +121,27 @@ export default function WeeklyCalendar({ courses, semester }) {
 
             {/* Day columns */}
             {DAYS.map(day => {
-              const dayCoursesWithStyle = courses
-                .filter(c => (c.days ?? []).includes(day) && getBlockStyle(c.startTime, c.endTime))
-              const groups = groupOverlappingBlocks(dayCoursesWithStyle)
+              // A course can have multiple meetings (e.g. a lecture plus a
+              // separate recitation) that fall on different days at
+              // different times — one block instance per (course, meeting)
+              // that lands on this day column, not one per course.
+              const dayBlocks = []
+              for (const course of courses) {
+                getMeetings(course).forEach((meeting, meetingIdx) => {
+                  if (!(meeting.days ?? []).includes(day)) return
+                  const style = getBlockStyle(meeting.startTime, meeting.endTime)
+                  if (!style) return
+                  dayBlocks.push({
+                    key: `${course.crn}_${meetingIdx}`,
+                    course,
+                    meeting,
+                    style,
+                    startTime: meeting.startTime,
+                    endTime: meeting.endTime,
+                  })
+                })
+              }
+              const groups = groupOverlappingBlocks(dayBlocks)
 
               return (
                 <div key={day} className="flex-1 relative border-l border-navy-400">
@@ -138,19 +156,18 @@ export default function WeeklyCalendar({ courses, semester }) {
 
                   {/* Course blocks — render each overlap group side by side */}
                   {groups.map((group) =>
-                    group.map((course, idx) => {
-                      const style = getBlockStyle(course.startTime, course.endTime)
-                      if (!style) return null
+                    group.map((block, idx) => {
                       const widthPct = 100 / group.length
                       const leftPct  = idx * widthPct
                       return (
                         <CourseBlock
-                          key={course.crn}
-                          course={course}
-                          style={style}
+                          key={block.key}
+                          course={block.course}
+                          meeting={block.meeting}
+                          style={block.style}
                           widthPct={widthPct - 0.5}
                           leftPct={leftPct}
-                          isConflicting={conflictingCrns.has(course.crn)}
+                          isConflicting={conflictingCrns.has(block.course.crn)}
                         />
                       )
                     })

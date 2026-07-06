@@ -15,8 +15,11 @@ export default function AddToScheduleModal({ isOpen, onClose, rec, courseCode, s
 
   if (!isOpen || !rec) return null
 
-  const { days, startTime, endTime } = parseScheduleString(rec.schedule)
-  const hasTimes = startTime && endTime
+  // A section can have multiple meetings (e.g. a lecture plus a separate
+  // recitation on a different day/time) — parseScheduleString returns all
+  // of them, not just the first.
+  const meetings = parseScheduleString(rec.schedule)
+  const hasTimes = meetings.length > 0
   // parseInt fallback must not use || — 0-credit labs are legitimate.
   const parsedCredits = parseInt(rec.credits, 10)
 
@@ -26,9 +29,7 @@ export default function AddToScheduleModal({ isOpen, onClose, rec, courseCode, s
     courseName:  rec.title || courseCode,
     section:     rec.section_number,
     professor:   rec.instructor_name,
-    days,
-    startTime,
-    endTime,
+    meetings,
     building:    rec.building ?? '',
     room:        rec.room ?? '',
     semester:    semester ?? '',

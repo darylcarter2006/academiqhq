@@ -39,8 +39,11 @@ export default function ManualAddCourseModal({ isOpen, onClose, addCourse }) {
 
   if (!isOpen) return null
 
-  const parsedTimes = selectedSection ? parseScheduleString(selectedSection.schedule) : null
-  const hasTimes = parsedTimes?.startTime && parsedTimes?.endTime
+  // A section can have multiple meetings (e.g. a lecture plus a separate
+  // recitation on a different day/time) — parseScheduleString returns all
+  // of them, not just the first.
+  const parsedMeetings = selectedSection ? parseScheduleString(selectedSection.schedule) : []
+  const hasTimes = parsedMeetings.length > 0
 
   async function handleSearch(e) {
     e.preventDefault()
@@ -90,9 +93,7 @@ export default function ManualAddCourseModal({ isOpen, onClose, addCourse }) {
       courseName:  selectedSection.title || courseCode,
       section:     selectedSection.section_number,
       professor:   selectedSection.instructor_name,
-      days:        parsedTimes?.days ?? [],
-      startTime:   parsedTimes?.startTime ?? null,
-      endTime:     parsedTimes?.endTime ?? null,
+      meetings:    parsedMeetings,
       building:    selectedSection.building ?? '',
       room:        selectedSection.room ?? '',
       semester:    searchResult.term ?? '',
