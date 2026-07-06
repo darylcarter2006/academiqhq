@@ -12,10 +12,10 @@ const TERMS = [
   { label: 'Fall 2026',   value: '202608' },
 ]
 
-export default function SearchForm({ onSubmit, loading }) {
-  const [course, setCourse] = React.useState('')
-  const [prefs, setPrefs] = React.useState('')
-  const [term, setTerm] = React.useState('')
+export default function SearchForm({ onSubmit, loading, initialValues }) {
+  const [course, setCourse] = React.useState(initialValues?.course ?? '')
+  const [prefs, setPrefs] = React.useState(initialValues?.prefs ?? '')
+  const [term, setTerm] = React.useState(initialValues?.term ?? '')
 
   function handleSubmit(e) {
     e.preventDefault()

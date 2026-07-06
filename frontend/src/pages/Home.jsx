@@ -24,10 +24,33 @@ if (!API_BASE && import.meta.env.PROD) {
   )
 }
 
+// Last successful search (inputs + result), kept in sessionStorage so
+// navigating to /schedule and back doesn't blank the page or force a repeat
+// API call. In-tab convenience only — never sent to the backend.
+const LAST_SEARCH_KEY = 'academiq_last_search'
+
+function readLastSearch() {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(LAST_SEARCH_KEY))
+    if (parsed && typeof parsed === 'object' && parsed.result && parsed.inputs) {
+      return parsed
+    }
+  } catch { /* unavailable or corrupt — fall back to blank state */ }
+  return null
+}
+
+function writeLastSearch(inputs, result) {
+  try {
+    sessionStorage.setItem(LAST_SEARCH_KEY, JSON.stringify({ inputs, result }))
+  } catch { /* quota / private browsing — non-fatal */ }
+}
+
 export default function Home() {
+  // Lazy init so the sessionStorage read happens once per mount
+  const [restored]            = React.useState(readLastSearch)
   const [loading, setLoading] = React.useState(false)
   const [error, setError]     = React.useState(null)
-  const [result, setResult]   = React.useState(null)
+  const [result, setResult]   = React.useState(restored?.result ?? null)
   const { courses, addCourse, user } = useSchedule()
 
   async function handleSearch({ course, prefs, term }) {
@@ -50,7 +73,9 @@ export default function Home() {
           : (typeof detail === 'string' ? detail : `Server error ${res.status}`)
         throw new Error(msg)
       }
-      setResult(await res.json())
+      const data = await res.json()
+      setResult(data)
+      writeLastSearch({ course, prefs, term: term ?? '' }, data)
     } catch (err) {
       // "Failed to fetch" / "NetworkError" almost always means CORS rejection or
       // the backend is unreachable. Surface the URL so it's obvious in the UI.
@@ -113,7 +138,7 @@ export default function Home() {
         </header>
 
         {/* Form */}
-        <SearchForm onSubmit={handleSearch} loading={loading} />
+        <SearchForm onSubmit={handleSearch} loading={loading} initialValues={restored?.inputs} />
 
         {/* Error */}
         {error && (
