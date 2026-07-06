@@ -1,13 +1,21 @@
 import logging
 from typing import Any
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, Field
 
 from auth import get_current_user
 from db.database import get_schedule, upsert_schedule, delete_course_from_schedule
+from limiter import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# recommend.py limits at 5/minute because each call costs a Claude API
+# request. These routes only do a Postgres read/write with no external API
+# cost, so a much more generous per-client limit is sane — this just bounds
+# abuse (e.g. a buggy frontend retry loop) rather than protecting a paid
+# resource.
+SCHEDULE_RATE_LIMIT = "30/minute"
 
 
 class SchedulePayload(BaseModel):
@@ -16,7 +24,9 @@ class SchedulePayload(BaseModel):
 
 
 @router.get('/schedule/{user_id}')
+@limiter.limit(SCHEDULE_RATE_LIMIT)
 async def get_user_schedule(
+    request: Request,
     user_id: str,
     current_user: str = Depends(get_current_user),
 ):
@@ -29,7 +39,9 @@ async def get_user_schedule(
 
 
 @router.post('/schedule/{user_id}')
+@limiter.limit(SCHEDULE_RATE_LIMIT)
 async def save_user_schedule(
+    request: Request,
     user_id: str,
     payload: SchedulePayload,
     current_user: str = Depends(get_current_user),
@@ -42,7 +54,9 @@ async def save_user_schedule(
 
 
 @router.delete('/schedule/{user_id}/course/{crn}')
+@limiter.limit(SCHEDULE_RATE_LIMIT)
 async def remove_course(
+    request: Request,
     user_id: str,
     crn: str,
     current_user: str = Depends(get_current_user),
