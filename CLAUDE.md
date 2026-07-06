@@ -70,7 +70,7 @@ routes/recommend.py
 **Schedule builder** (added on `feature/schedule-builder`):
 - Routes in `routes/schedule.py`: `GET/POST /api/schedule/{user_id}` and `DELETE /api/schedule/{user_id}/course/{crn}`; all require a Supabase JWT and enforce `user_id == token sub`
 - JWT verification in `auth.py`: ES256 via JWKS fetched from `SUPABASE_URL` at startup (re-fetched on unknown kid, 60 s cooldown)
-- Schedules stored in the `saved_schedules` table in `cache.db` (see Notes — this file is no longer safe to delete casually)
+- Schedules stored in Supabase Postgres (`saved_schedules` table — schema in `db/supabase_schema.sql`); accessed via the service-role key (`SUPABASE_SERVICE_ROLE_KEY`), ownership enforced in the route layer, not RLS
 - Frontend: React Router pages `/`, `/schedule`, `/login`, `/signup`; `useSchedule` hook is the single source of truth (guests → localStorage key `academiq_schedule` as a bare JSON array, signed-in → backend)
 - Requires `SUPABASE_URL` in `backend/.env` and `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in `frontend/.env`
 
@@ -93,5 +93,5 @@ routes/recommend.py
 
 - `temp-vite/` is a leftover Vite scaffold — it is not part of the app and can be ignored.
 - Backend packages are installed only inside `backend/venv/`; always invoke Python as `venv/bin/python` or `venv/bin/uvicorn` from the `backend/` directory.
-- The SQLite file (`backend/cache.db`) is gitignored. **Warning:** since the schedule-builder feature it holds the `saved_schedules` table (real user data) alongside the RMP cache — deleting the file wipes saved schedules too. To force fresh RMP fetches, clear only the `rmp_cache` table. On Render the filesystem is ephemeral, so saved schedules do not survive a redeploy — migrating them to Supabase Postgres is the known follow-up.
+- The SQLite cache file (`backend/cache.db`) is gitignored and holds only the RMP cache. Delete it to force fresh RMP fetches. Saved schedules live in Supabase Postgres and are unaffected.
 - CORS is restricted to `localhost:5173` and `localhost:4173` (Vite preview); update `main.py` before deploying.

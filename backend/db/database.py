@@ -1,15 +1,38 @@
 """
-Simple SQLite cache so we don't hammer Rate My Professors on every request.
-Cache entries expire after 7 days.
+RMP cache: local SQLite (cache.db, 7-day TTL) so we don't hammer Rate My
+Professors on every request. Disposable — safe to delete.
+
+Saved schedules: Supabase Postgres (saved_schedules table). Render's disk is
+ephemeral, so durable user data must not live in the SQLite file. Uses the
+service-role key; ownership checks happen in routes/schedule.py via JWT.
 """
+import os
 import sqlite3
 import json
 import time
-import uuid
+import logging
+from datetime import datetime, timezone
 from pathlib import Path
+
+from supabase import create_client, Client
+
+logger = logging.getLogger(__name__)
 
 DB_PATH = Path(__file__).parent.parent / 'cache.db'
 CACHE_TTL = 7 * 24 * 3600  # 7 days in seconds
+
+_supabase_url = os.environ.get("SUPABASE_URL", "")
+_supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+_supabase_client: Client | None = None
+
+
+def _get_supabase() -> Client:
+    global _supabase_client
+    if _supabase_client is None:
+        if not _supabase_url or not _supabase_key:
+            raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
+        _supabase_client = create_client(_supabase_url, _supabase_key)
+    return _supabase_client
 
 
 def _conn() -> sqlite3.Connection:
@@ -20,15 +43,6 @@ def _conn() -> sqlite3.Connection:
             name     TEXT PRIMARY KEY,
             data     TEXT NOT NULL,
             cached_at INTEGER NOT NULL
-        )
-    ''')
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS saved_schedules (
-            id         TEXT PRIMARY KEY,
-            user_id    TEXT NOT NULL UNIQUE,
-            semester   TEXT NOT NULL,
-            courses    TEXT NOT NULL,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     conn.commit()
@@ -55,35 +69,51 @@ def set_cached_rmp(name: str, data: dict) -> None:
 
 
 def get_schedule(user_id: str) -> dict | None:
-    with _conn() as conn:
-        row = conn.execute(
-            'SELECT id, user_id, semester, courses FROM saved_schedules WHERE user_id = ?',
-            (user_id,),
-        ).fetchone()
-    if row is None:
+    try:
+        resp = (
+            _get_supabase()
+            .table('saved_schedules')
+            .select('id, user_id, semester, courses')
+            .eq('user_id', user_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("Supabase get_schedule failed for user %s: %s", user_id, exc)
+        raise RuntimeError("Schedule storage is unavailable.") from exc
+
+    if not resp.data:
         return None
+    row = resp.data[0]
+    # courses is a JSONB column — already deserialized by the client
     return {
         'id': row['id'],
         'user_id': row['user_id'],
         'semester': row['semester'],
-        'courses': json.loads(row['courses']),
+        'courses': row['courses'],
     }
 
 
 def upsert_schedule(user_id: str, semester: str, courses: list) -> dict:
-    row_id = uuid.uuid4().hex
-    with _conn() as conn:
-        conn.execute(
-            '''
-            INSERT INTO saved_schedules (id, user_id, semester, courses, updated_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(user_id) DO UPDATE SET
-                semester   = excluded.semester,
-                courses    = excluded.courses,
-                updated_at = CURRENT_TIMESTAMP
-            ''',
-            (row_id, user_id, semester, json.dumps(courses)),
+    try:
+        (
+            _get_supabase()
+            .table('saved_schedules')
+            .upsert(
+                {
+                    'user_id': user_id,
+                    'semester': semester,
+                    'courses': courses,
+                    'updated_at': datetime.now(timezone.utc).isoformat(),
+                },
+                on_conflict='user_id',
+            )
+            .execute()
         )
+    except Exception as exc:
+        logger.error("Supabase upsert_schedule failed for user %s: %s", user_id, exc)
+        raise RuntimeError("Schedule storage is unavailable.") from exc
+
     return get_schedule(user_id)
 
 
