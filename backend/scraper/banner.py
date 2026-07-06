@@ -12,9 +12,10 @@ UNCG has two Banner systems:
   - Banner 8 (old): ssb.uncg.edu/pls/prod/bwckschd.p_disp_dyn_sched
     Classic HTML form, requires session cookies and form submission
 
-The Banner 9 API is preferred because it returns structured JSON, needs no
-browser automation, and is significantly faster. Playwright is only used
-as a fallback for the old system.
+The Banner 9 API is preferred because it returns structured JSON and is
+significantly faster. The old-system fallback is plain HTTP form
+submission (httpx + BeautifulSoup) — no browser automation is used
+anywhere in this module.
 """
 
 import httpx
